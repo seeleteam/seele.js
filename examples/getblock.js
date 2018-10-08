@@ -1,4 +1,4 @@
-var seeleWebProvider  = require('../lib/seele');
+var seeleWebProvider  = require('../src/seele');
 
 
 var client =new seeleWebProvider();

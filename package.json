@@ -1,11 +1,27 @@
 {
-  "name": "sw3",
+  "name": "seelejs",
   "version": "1.0.0",
-  "description": "for seele web3.js",
-  "main": "httpProvider.js",
+  "description": "Generic script api library for Seele blockchain",
+  "main": "./src/seele.js",
   "scripts": {
-    "test": "make test"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "wangff",
-  "license": "ISC"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/seeleteam/seelejs.git"
+  },
+  "keywords": [
+    "seele",
+    "javascript",
+    "rpc-api"
+  ],
+  "author": "ffwang@seelenet.com",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/seeleteam/seelejs/issues"
+  },
+  "homepage": "https://github.com/seeleteam/seelejs#readme",
+  "dependencies": {
+    "lib": "^3.0.2"
+  }
 }

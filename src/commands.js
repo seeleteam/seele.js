@@ -1,7 +1,41 @@
 
 var commands = module.exports.commands = [
-    'getInfo',
-    'getBlock'
+  // baseAPI
+  'getInfo', // no parameters
+  'getBalance', // account:string - wallet address
+  'addTx',
+  'getAccountNonce',
+  'getBlockHeight',
+  'getBlock',
+  'call',
+  'getLogs',
+  //txpool
+  'getBlockTransactionCount',
+  'getTransactionByBlockIndex',
+  'getTransactionByHash',
+  'getReceiptByTxHash',
+  'getDebtByHash',
+  //network
+  'getPeersInfo',
+  'getPeerCount',
+  'getNetworkVersion',
+  'getProtocolVersion',
+  'getNetworkID',
+  //miner
+  'start',
+  'stop',
+  'status',
+  'getCoinbase',
+  'setThreads',
+  'setCoinbase',
+  'getEngineInfo',
+  //debug
+  'printBlock',
+  'getTxPoolContent',
+  'getTxPoolTxCount',
+  'getPendingTransactions',
+  'getPendingDebts',
+  'dumpHeap'
 ]
 
 module.exports.isCommand = function(command) {

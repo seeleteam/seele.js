@@ -1,12 +1,12 @@
 # SeeleJS
 SeeleJS is a generic scripting API library for the Seele blockchain.
 
-`npm install seelejs`
+`npm install seele.js`
 
 ## Example
 
 ```js
-var seelejs = require('seelejs');
+var seelejs = require('seele.js');
 
 var client = new seelejs();
 client.getInfo(function(err, info) {
@@ -23,7 +23,7 @@ client.getInfo(function(err, info) {
 The default seelejs connects to the local full node, of course you can connect to another node.
 
 ```js
-var seelejs = require('seelejs');
+var seelejs = require('seele.js');
 
 var client = new seelejs("127.0.0.1", "8037", [{'name':'Content-Type', 'value':'application/json'}], "username", "userpwd", 0);
 client.getInfo(console.log);

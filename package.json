@@ -1,5 +1,5 @@
 {
-  "name": "seelejs",
+  "name": "seele.js",
   "version": "1.0.0",
   "description": "Generic script api library for Seele blockchain",
   "main": "./src/seele.js",

@@ -1,4 +1,4 @@
-// var seelejs = require('seelejs');
+// var seelejs = require('seele.js');
 var seelejs  = require('../src/seele');
 
 var client = new seelejs("127.0.0.1", "8037", [{'name':'Content-Type', 'value':'application/json'}], "username", "userpwd", 0);

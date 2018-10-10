@@ -1,9 +1,12 @@
 # SeeleJS
+
 SeeleJS is a generic scripting API library for the Seele blockchain.
 
 `npm install seele.js`
 
 ## Example
+
+If the last parameter is not bound to a callback function, the console.log is used by default.
 
 ```js
 var seelejs = require('seele.js');
@@ -16,18 +19,40 @@ client.getInfo(function(err, info) {
 
   console.log(info);
 });
+
+client.getInfo(console.log);
+
+client.exec("getInfo", function(err, info) {
+  if (err) {
+    return console.log(err);
+  }
+
+  console.log(info);
+});
+
+client.send("getInfo");
 ```
 
-## Configure
+## Options
 
-The default seelejs connects to the local full node, of course you can connect to another node.
+You can pass options to the initialization function or use the default options.
 
 ```js
 var seelejs = require('seele.js');
 
-var client = new seelejs("127.0.0.1", "8037", [{'name':'Content-Type', 'value':'application/json'}], "username", "userpwd", 0);
-client.getInfo(console.log);
+function seelejs(host, port, headers, user, password, timeout){
+  ...
+};
 ```
+
+Available options and default values:
+
++ host(String) : A domain name or IP address of the server to issue the request to. Default: *localhost*.
++ port(String) : ort Port of remote server. Default: *8037*.
++ headers(Object) : An object containing request headers, the format must be [{'name':'', 'vaule':''}, {'name':'', 'vaule':''}...].
++ user(String) : Basic authentication i.e. 'user:password' to compute an Authorization header. Not used.
++ password(String) : Basic authentication i.e. 'user:password' to compute an Authorization header. Not used.
++ timeout(Number) : timeout A number specifying the socket timeout in milliseconds. This will set the timeout before the socket is connected. Default: *30000*.
 
 ## Methods
 
@@ -67,26 +92,10 @@ All of the API commands are supported in lowercase or camelcase. Or uppercase. A
 client.exec("getInfo");
 
 client.exec("getInfo", function(err, info){
-    if (err) {
-        return console.log(err);
-      }
-    
-      console.log(info);
+  if (err) {
+    return console.log(err);
+  }
+
+  console.log(info);
 });
 ```
-
-## Options
-
-You can pass options to the initialization function or use the default options.
-
-```js
-var client = new seelejs("127.0.0.1", "8037", [{'name':'Content-Type', 'value':'application/json'}], "username", "userpwd", 0);
-
-var client = new seelejs();
-```
-
-Available options and default values:
-
-+ host *localhost*
-+ port *8037*
-+ timeout 30000

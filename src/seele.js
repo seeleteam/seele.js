@@ -5,6 +5,9 @@ var api  = require('./commands')
 * seeleWebProvider should be used to send rpc calls over http
 * @param {String} host A domain name or IP address of the server to issue the request to. Default: 'localhost'.
 * @param {String} port Port of remote server. Default: '8037'.
+* @param {Object} headers An object containing request headers, the format must be [{'name':'', 'vaule':''}, {'name':'', 'vaule':''}...].
+* @param {String} user Basic authentication i.e. 'user:password' to compute an Authorization header. Not used.
+* @param {String} password Basic authentication i.e. 'user:password' to compute an Authorization header. Not used.
 * @param {Number} timeout A number specifying the socket timeout in milliseconds. This will set the timeout before the socket is connected. Default: '30000'.
 */
 var seeleWebProvider = function (host, port, headers, user, password, timeout) {

@@ -99,3 +99,22 @@ client.exec("getInfo", function(err, info){
   console.log(info);
 });
 ```
+
+### .generateTx(privatekey [Hex String], rawTx [JSON String]) return tx [Object]
+
+Generate transaction and sign, the rawTx must be in the example format, otherwise an error will occur.
+
+```js
+var privatekey = "0x24ce9cadcc9207c94296db166ab7a0fa686f2a6d29f7ea54fe8c22271c40812e"
+var rawTx = {
+  "From":"0xa61e5b0b30e91c4ae10dda3a6ddeb9d9d35ebfe1",
+  "To":"0x0000000000000000000000000000000000000000",
+  "Amount":0,
+  "AccountNonce":123,
+  "Fee":123,
+  "Timestamp":0,
+  "Payload":""
+}
+
+tx = generateTx(privatekey, rawTx)
+```

@@ -1,8 +1,9 @@
 var api  = require('./commands')
  ,  http = require('http')
+ ,  Transaction   = require('./tx')
 
 /**
-* seeleWebProvider should be used to send rpc calls over http
+* SeeleWebProvider should be used to send rpc calls over http
 * @param {String} host A domain name or IP address of the server to issue the request to. Default: 'localhost'.
 * @param {String} port Port of remote server. Default: '8037'.
 * @param {Object} headers An object containing request headers, the format must be [{'name':'', 'vaule':''}, {'name':'', 'vaule':''}...].
@@ -20,11 +21,11 @@ var seeleWebProvider = function (host, port, headers, user, password, timeout) {
 };
 
 /**
-* Should be called to prepare new ClientRequest
-*
+* Should be called to prepare new async ClientRequest
 * @method prepareRequest
-* @param {Boolean} true if request should be async TODO
+* @param {Boolean} true if request should be sync
 * @return {ClientRequest} object
+* @todo sync request
 */
 seeleWebProvider.prototype.prepareRequest = function (fn, async) {
   var options = {
@@ -77,10 +78,10 @@ seeleWebProvider.prototype.prepareRequest = function (fn, async) {
 
 /**
 * Should be called to make sync request
-*
 * @method send
 * @param {Object} command
 * @return {Object} result
+* @todo Using namespace
 */
 seeleWebProvider.prototype.send = function (command) {
   var args = Array.prototype.slice.call(arguments, 1)
@@ -113,6 +114,41 @@ seeleWebProvider.prototype.invalid = function(command) {
 seeleWebProvider.prototype.exec = function(command) {
   var func = api.isCommand(command) ? 'send' : 'invalid'
   return this[func].apply(this, arguments)
+},
+
+/**
+* Generate transaction and sign, the rawTx must be in the example format, otherwise an error will occur.
+* @example 
+* var privatekey = "0x24ce9cadcc9207c94296db166ab7a0fa686f2a6d29f7ea54fe8c22271c40812e"
+* var rawTx = {
+*      "From":"0xa61e5b0b30e91c4ae10dda3a6ddeb9d9d35ebfe1", 
+*      "To":"0x0000000000000000000000000000000000000000", 
+*      "Amount":0, 
+*      "AccountNonce":123, 
+*      "Fee":123, 
+*      "Timestamp":0, 
+*      "Payload":""
+* }
+* tx = generateTx(privatekey, rawTx)
+* @method generateTx
+* @param {Object} privatekey
+* @param {Object} rawTx
+* @return {Object} tx
+*/
+seeleWebProvider.prototype.generateTx = function(privatekey, rawTx) {
+  if (privatekey.slice(0, 2) === "0x"){
+    privatekey = privatekey.slice(2)
+  }
+
+  tx = new Transaction(rawTx)
+
+  var hashBuffer = tx.hash()
+  tx.Hash = "0x"+hashBuffer.toString('hex')
+
+
+  var signBuffer = tx.sign(hashBuffer, Buffer.from(privatekey, 'hex'))
+  tx.Signature = {"Sig" : signBuffer.toString('base64')}
+  return tx
 },
 
 api.commands.forEach(function(command) {

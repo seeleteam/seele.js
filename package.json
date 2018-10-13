@@ -1,6 +1,6 @@
 {
   "name": "seele.js",
-  "version": "1.1.11",
+  "version": "1.2.0",
   "description": "Generic script api library for Seele blockchain",
   "main": "./index.js",
   "scripts": {

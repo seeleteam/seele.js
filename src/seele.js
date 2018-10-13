@@ -95,7 +95,7 @@ seeleWebProvider.prototype.send = function (command) {
 
   var rpcData = JSON.stringify({
     id:      new Date().getTime()
-    ,  method:  "seele_".concat(command)
+    ,  method:  api.getNamespace(command).concat("_").concat(command)
     ,  params:  args
   })
 
@@ -150,13 +150,16 @@ seeleWebProvider.prototype.generateTx = function(privatekey, rawTx) {
   var signBuffer = tx.sign(hashBuffer, Buffer.from(privatekey, 'hex'))
   tx.Signature = {"Sig" : signBuffer.toString('base64')}
   return tx
-},
+}
 
-api.commands.forEach(function(command) {
-  var cp = seeleWebProvider.prototype
-  cp[command] = function() {
-    this.send(command, ...arguments);
-  };
-})
+for (const namespace in api.commands) {
+  api.commands[namespace].forEach(command => {
+    var cp = seeleWebProvider.prototype
+    cp[command] = function() {
+      console.log(command)
+      this.send(command, ...arguments);
+    }
+  })
+}
 
 module.exports = seeleWebProvider;

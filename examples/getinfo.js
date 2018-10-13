@@ -17,3 +17,12 @@ client.exec("getInfo", function(err, info){
     
       console.log(info);
 });
+
+// Call mode 4
+client.send("getInfo", function(err, info){
+    if (err) {
+        return console.log(err);
+      }
+    
+      console.log(info);
+});

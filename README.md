@@ -22,17 +22,17 @@ client.getInfo(function(err, info) {
   console.log(info);
 });
 
-client.getInfo(console.log);
+client.exec("getInfo", console.log);
 
-client.exec("getInfo", function(err, info) {
+client.exec("getBlock", "", 1, false, console.log);
+
+client.send("getBlock", "", 1, false, function(err, info) {
   if (err) {
     return console.log(err);
   }
 
   console.log(info);
 });
-
-client.send("getInfo");
 ```
 
 ## Options

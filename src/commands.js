@@ -8,14 +8,16 @@ var commands = module.exports.commands = {
     'getBlockHeight',
     'getBlock',
     'call',
-    'getLogs'
+    'getLogs',
+    'generatePayload'
   ],
   "txpool" : [
     'getBlockTransactionCount',
     'getTransactionByBlockIndex',
     'getTransactionByHash',
     'getReceiptByTxHash',
-    'getDebtByHash'
+    'getDebtByHash',
+    'getABI'
   ],
   "network" : [
     'getPeersInfo',

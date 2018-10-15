@@ -52,10 +52,7 @@ class seeleWebProvider {
           fn(null, data.result || data);
         }
         catch (exception) {
-          var errMsg = response.statusCode !== 200
-            ? 'Invalid params ' + response.statusCode
-            : 'Failed to parse JSON';
-          errMsg += ' : ' + JSON.stringify(data);
+          var errMsg = exception + ' : ' + JSON.stringify(data);
           return fn(new Error(errMsg));
         }
       });

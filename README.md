@@ -85,6 +85,36 @@ client.send("getBlock", "", 1, false, function(err, info) {
 });
 ```
 
+### .sendSync(command [string], ...arguments...)
+
+Sends the given command with optional arguments. This function will return a Promise object, and
+you can use to handle the result. All of the API commands are supported in lowercase or camelcase.
+Or uppercase. Anycase!
+
+```js
+var task1 = function(result){
+    console.log("task1")
+    console.log(result)
+    return client.sendSync("getInfo")
+}
+
+var task2 = function(result){
+    console.log("task2")
+    console.log(result)
+    return result.Coinbase
+}
+
+var callback = function(result){
+    console.log("callback")
+    console.log(result)
+}
+
+let promise = client.sendSync("getBlock", "", 1, false)
+promise.then(task1).then(task2).then(callback).catch(function(err){
+    console.log(err);
+})
+```
+
 ### .exec(command [string], ...arguments..., callback [function])
 
 Executes the given command with optional arguments. Function `callback` defaults to `console.log`.
@@ -101,6 +131,20 @@ client.exec("getInfo", function(err, info){
   console.log(info);
 });
 ```
+
+### .execSync(command [string], ...arguments...)
+
+Executes the given command with optional arguments. This function will return a Promise object, and
+you can use to handle the result. All of the API commands are supported in lowercase or camelcase.
+Or uppercase. Anycase!
+
+```js
+let promise = client.execSync("getBlock", "", 1, false)
+promise.then(function(info){
+  console.log(info);
+}).catch(function(err){
+  console.log(err);
+})```
 
 ### .generateTx(privatekey [Hex String], rawTx [JSON String]) return tx [Object]
 

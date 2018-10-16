@@ -17,7 +17,6 @@ var commands = module.exports.commands = {
     'getTransactionByHash',
     'getReceiptByTxHash',
     'getDebtByHash',
-    'getABI'
   ],
   "network" : [
     'getPeersInfo',

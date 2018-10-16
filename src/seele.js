@@ -49,11 +49,14 @@ class seeleWebProvider {
           if (data.error) {
             return fn(new Error(JSON.stringify(data)));
           }
-          fn(null, data.result || data);
-        }
-        catch (exception) {
-          var errMsg = exception + ' : ' + JSON.stringify(data);
-          return fn(new Error(errMsg));
+          if (async){
+            fn(null, data.result);
+          } else{
+            fn(data.result);
+          }
+        } catch (exception) {
+            var errMsg = exception + ' : ' + JSON.stringify(data);
+            return fn(new Error(errMsg));
         }
       });
     });
@@ -75,7 +78,7 @@ class seeleWebProvider {
   }
 
   /**
-  * Should be called to make sync request
+  * Should be called to make async request
   * @method send
   * @param {string} command
   * @return {Object} result
@@ -87,7 +90,7 @@ class seeleWebProvider {
       fn = args.pop().bind(this);
     }
 
-    var request = this.prepareRequest(fn, false);
+    var request = this.prepareRequest(fn, true);
     var rpcData = JSON.stringify({
       id: new Date().getTime(),
       method: api.getNamespace(command).concat("_").concat(command),
@@ -97,6 +100,30 @@ class seeleWebProvider {
     request.on('error', fn);
     request.end(rpcData);
     return this;
+  }
+
+  /**
+  * Should be called to make sync request
+  * @method send
+  * @param {string} command
+  * @return {Object} result
+  * @todo Using namespace
+  */
+  sendSync(command) {
+    var self = this, args = Array.prototype.slice.call(arguments, 1)
+    return new Promise(function(resolve, reject){
+      var request = self.prepareRequest(resolve, false);
+      var rpcData = JSON.stringify({
+        id: new Date().getTime(),
+        method: api.getNamespace(command).concat("_").concat(command),
+        params: args
+      });
+
+      request.on('error', (e) =>{
+        reject(e)
+      });
+      request.end(rpcData);
+    }).then(function(result){return result})
   }
 
   /**
@@ -115,6 +142,16 @@ class seeleWebProvider {
    */
   exec(command) {
     var func = api.isCommand(command) ? 'send' : 'invalid';
+    return this[func].apply(this, arguments);
+  }
+
+  /**
+   * Executes the given command with optional arguments. Function `callback` defaults to `console.log`.
+   * All of the API commands are supported in lowercase or camelcase. Or uppercase. Anycase!
+   * @param {string} command 
+   */
+  execSync(command) {
+    var func = api.isCommand(command) ? 'sendSync' : 'invalid';
     return this[func].apply(this, arguments);
   }
 

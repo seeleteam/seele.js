@@ -111,7 +111,7 @@ class seeleWebProvider {
   */
   sendSync(command) {
     var self = this, args = Array.prototype.slice.call(arguments, 1)
-    return new Promise(function(resolve, reject){
+    return new Promise(function(resolve){
       var request = self.prepareRequest(resolve, false);
       var rpcData = JSON.stringify({
         id: new Date().getTime(),
@@ -120,10 +120,10 @@ class seeleWebProvider {
       });
 
       request.on('error', (e) =>{
-        reject(e)
+        resolve(e)
       });
       request.end(rpcData);
-    }).then(function(result){return result})
+    })
   }
 
   /**

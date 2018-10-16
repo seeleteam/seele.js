@@ -144,7 +144,8 @@ promise.then(function(info){
   console.log(info);
 }).catch(function(err){
   console.log(err);
-})```
+})
+```
 
 ### .generateTx(privatekey [Hex String], rawTx [JSON String]) return tx [Object]
 

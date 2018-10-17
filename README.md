@@ -6,6 +6,14 @@ SeeleJS is a generic scripting API library for the Seele blockchain.
 
 > Due to problems with the keccak library, some errors will occur during installation, but if `Keccak bindings compilation fail. Pure JS implementation will be used.` occurs, it doesn't matter, the package is normal. Follow-up will consider blocking this error.
 
+Or, You can import `seele.js`(github.com/seeleteam/seele.js/seele.js) directly, then you can use find.js
+
+> This file is generated using the command and runs `browserify -r .\src\seele.js:seele.js > seele.js` in the root folder.
+
+```html
+<script src="seele.js"></script>
+```
+
 ## Example
 
 If the last parameter is not bound to a callback function, the console.log is used by default.

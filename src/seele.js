@@ -23,13 +23,12 @@ class seeleWebProvider {
   }
   
   /**
-  * Should be called to prepare new async ClientRequest
+  * Should be called to prepare a new ClientRequest
   * @method prepareRequest
-  * @param {Boolean} true if request should be sync
+  * @param {Object} fn the function to process result or error
   * @return {ClientRequest} object
-  * @todo sync request
   */
-  prepareRequest(fn, async) {
+  prepareRequest(fn) {
     var options = {
       host: this.host,
       port: this.port,
@@ -49,11 +48,7 @@ class seeleWebProvider {
           if (data.error) {
             return fn(new Error(JSON.stringify(data)));
           }
-          if (async){
-            fn(null, data.result);
-          } else{
-            fn(data.result);
-          }
+          fn(data.result);
         } catch (exception) {
             var errMsg = exception + ' : ' + JSON.stringify(data);
             return fn(new Error(errMsg));
@@ -80,7 +75,7 @@ class seeleWebProvider {
   /**
   * Should be called to make async request
   * @method send
-  * @param {string} command
+  * @param {String} command
   * @return {Object} result
   * @todo Using namespace
   */
@@ -90,7 +85,7 @@ class seeleWebProvider {
       fn = args.pop().bind(this);
     }
 
-    var request = this.prepareRequest(fn, true);
+    var request = this.prepareRequest(fn)
     var rpcData = JSON.stringify({
       id: new Date().getTime(),
       method: api.getNamespace(command).concat("_").concat(command),
@@ -105,14 +100,14 @@ class seeleWebProvider {
   /**
   * Should be called to make sync request
   * @method send
-  * @param {string} command
-  * @return {Object} result
+  * @param {String} command
+  * @return {Promise} result
   * @todo Using namespace
   */
   sendSync(command) {
     var self = this, args = Array.prototype.slice.call(arguments, 1)
     return new Promise(function(resolve){
-      var request = self.prepareRequest(resolve, false);
+      var request = self.prepareRequest(resolve);
       var rpcData = JSON.stringify({
         id: new Date().getTime(),
         method: api.getNamespace(command).concat("_").concat(command),

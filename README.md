@@ -14,24 +14,28 @@ If the last parameter is not bound to a callback function, the console.log is us
 var seelejs = require('seele.js');
 
 var client = new seelejs();
-client.getInfo(function(err, info) {
-  if (err) {
-    return console.log(err);
+client.getInfo(function(info) {
+  if (info instanceof Error){
+    console.log("Error")
+    console.log(info)
+    return
   }
 
-  console.log(info);
+  console.log(info)
 });
 
 client.exec("getInfo", console.log);
 
 client.exec("getBlock", "", 1, false, console.log);
 
-client.send("getBlock", "", 1, false, function(err, info) {
-  if (err) {
-    return console.log(err);
+client.send("getBlock", "", 1, false, function(info) {
+  if (info instanceof Error){
+    console.log("Error")
+    console.log(info)
+    return
   }
 
-  console.log(info);
+  console.log(info)
 });
 ```
 
@@ -61,12 +65,14 @@ Available options and default values:
 The [Seele API](https://github.com/seeleteam/go-seele/wiki/API-Document#json-rpc-list) is supported as direct methods. Use either camelcase or lowercase.
 
 ```js
-client.getInfo(function(err, info) {
-  if (err) {
-    return console.log(err);
+client.getInfo(function(info) {
+  if (info instanceof Error){
+    console.log("Error")
+    console.log(info)
+    return
   }
 
-  console.log(info);
+  console.log(info)
 });
 ```
 
@@ -76,12 +82,14 @@ Sends the given command with optional arguments. Function `callback` defaults to
 All of the API commands are supported in lowercase or camelcase. Or uppercase. Anycase!
 
 ```js
-client.send("getBlock", "", 1, false, function(err, info) {
-  if (err) {
-    return console.log(err);
+client.send("getBlock", "", 1, false, function(info) {
+  if (info instanceof Error){
+    console.log("Error")
+    console.log(info)
+    return
   }
 
-  console.log(info);
+  console.log(info)
 });
 ```
 
@@ -94,25 +102,35 @@ Or uppercase. Anycase!
 ```js
 var task1 = function(result){
     console.log("task1")
+    errorTask(result)
     console.log(result)
     return client.sendSync("getInfo")
 }
 
 var task2 = function(result){
     console.log("task2")
+    errorTask(result)
     console.log(result)
     return result.Coinbase
 }
 
 var callback = function(result){
     console.log("callback")
+    errorTask(result)
     console.log(result)
 }
 
+var errorTask = function(data){
+    if (data instanceof Error){
+        console.log(data)
+        throw data
+    }
+
+    return data
+}
+
 let promise = client.sendSync("getBlock", "", 1, false)
-promise.then(task1).then(task2).then(callback).catch(function(err){
-    console.log(err);
-})
+promise.then(task1).then(task2).then(callback).catch(promise.then(task1).then(task2).then(callback).catch(callback)
 ```
 
 ### .exec(command [string], ...arguments..., callback [function])
@@ -123,12 +141,14 @@ All of the API commands are supported in lowercase or camelcase. Or uppercase. A
 ```js
 client.exec("getInfo");
 
-client.exec("getInfo", function(err, info){
-  if (err) {
-    return console.log(err);
+client.exec("getInfo", function(info){
+  if (info instanceof Error){
+    console.log("Error")
+    console.log(info)
+    return
   }
 
-  console.log(info);
+  console.log(info)
 });
 ```
 

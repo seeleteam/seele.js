@@ -10,19 +10,23 @@ client.getInfo(console.log);
 client.exec("getInfo");
 
 // Call mode 3
-client.exec("getInfo", function(err, info){
-    if (err) {
-        return console.log(err);
-      }
-    
-      console.log(info);
+client.exec("getInfo", function(info){
+    if (info instanceof Error){
+		console.log("Error")
+		console.log(info)
+		return 
+	}
+	
+	console.log(info)
 });
 
 // Call mode 4
-client.send("getInfo", function(err, info){
-    if (err) {
-        return console.log(err);
-      }
-    
-      console.log(info);
+client.send("getInfo", function(info){
+    if (info instanceof Error){
+		console.log("Error")
+		console.log(info)
+		return 
+	}
+	
+	console.log(info)
 });

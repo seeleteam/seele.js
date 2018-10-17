@@ -18,16 +18,16 @@ class fileter {
      */
     blocktx(height, address, flag, fn) {
         var self = this.seele
-        self.send("getBlock", "", height, false, function (err, block) {
-            if (err) {
-                console.log(err);
+        self.send("getBlock", "", height, false, function (block) {
+            if (block instanceof Error) {
+                console.log(block);
                 return;
             }
 
             block.transactions.forEach(txHash => {
-                self.getTransactionByHash(txHash, function (err, tx) {
-                    if (err) {
-                        console.log(err);
+                self.getTransactionByHash(txHash, function (tx) {
+                    if (tx instanceof Error) {
+                        console.log(tx);
                         return;
                     }
 

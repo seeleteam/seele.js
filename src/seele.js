@@ -214,4 +214,7 @@ for (const namespace in api.commands) {
   })
 }
 
+if (typeof window !== 'undefined' && typeof window.seeleWebProvider === 'undefined'){
+  window.seeleWebProvider = seeleWebProvider;
+}
 module.exports = seeleWebProvider;

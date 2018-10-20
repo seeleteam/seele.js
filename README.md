@@ -6,12 +6,26 @@ SeeleJS is a generic scripting API library for the Seele blockchain.
 
 > Due to problems with the keccak library, some errors will occur during installation, but if `Keccak bindings compilation fail. Pure JS implementation will be used.` occurs, it doesn't matter, the package is normal. Follow-up will consider blocking this error.
 
-Or, You can import `seele.js`(github.com/seeleteam/seele.js/seele.js) directly, then you can use SeeleJS.
+Alternatively, if you are in the client/browser you can import `seele_browserify.js`(github.com/seeleteam/seele.js/browserify/seele_browserify.js) directly , then you can use SeeleJS.
 
-> This file is generated using the command and runs `browserify -r .\src\seele.js:seele.js > seele.js` in the root folder.
+> This file is generated using the command and runs `browserify -r ./src/seele.js:seele.js > ./browserify/seele_browserify.js` in the root folder.
 
 ```html
-<script src="seele.js"></script>
+<script src="./browserify/seele_browserify.js"></script>
+<script>
+var seelejs = require('seele.js');
+
+var client = new seelejs();
+client.getInfo(function(info) {
+  if (info instanceof Error){
+    console.log("Error")
+    console.log(info)
+    return
+  }
+
+  console.log(info)
+});
+</script>
 ```
 
 ## Example
@@ -70,7 +84,7 @@ Available options and default values:
 
 ## Methods
 
-The [Seele API](https://github.com/seeleteam/go-seele/wiki/API-Document#json-rpc-list) is supported as direct methods. Use either camelcase or lowercase.
+The [Seele API](https://github.com/seeleteam/go-seele/wiki/API-Document#json-rpc-list) is supported as direct methods. Use camelcase and lowercase first letter.
 
 ```js
 client.getInfo(function(info) {
@@ -87,7 +101,7 @@ client.getInfo(function(info) {
 ### .send(command [string], ...arguments..., callback [function])
 
 Sends the given command with optional arguments. Function `callback` defaults to `console.log`.
-All of the API commands are supported in lowercase or camelcase. Or uppercase. Anycase!
+All of the API commands are supported in camelcase and lowercase first letter.
 
 ```js
 client.send("getBlock", "", 1, false, function(info) {
@@ -104,8 +118,7 @@ client.send("getBlock", "", 1, false, function(info) {
 ### .sendSync(command [string], ...arguments...)
 
 Sends the given command with optional arguments. This function will return a Promise object, and
-you can use to handle the result. All of the API commands are supported in lowercase or camelcase.
-Or uppercase. Anycase!
+you can use to handle the result. All of the API commands are supported in camelcase and lowercase first letter.
 
 ```js
 var task1 = function(result){
@@ -144,7 +157,7 @@ promise.then(task1).then(task2).then(callback).catch(promise.then(task1).then(ta
 ### .exec(command [string], ...arguments..., callback [function])
 
 Executes the given command with optional arguments. Function `callback` defaults to `console.log`.
-All of the API commands are supported in lowercase or camelcase. Or uppercase. Anycase!
+All of the API commands are supported in camelcase and lowercase first letter.
 
 ```js
 client.exec("getInfo");
@@ -163,8 +176,7 @@ client.exec("getInfo", function(info){
 ### .execSync(command [string], ...arguments...)
 
 Executes the given command with optional arguments. This function will return a Promise object, and
-you can use to handle the result. All of the API commands are supported in lowercase or camelcase.
-Or uppercase. Anycase!
+you can use to handle the result. All of the API commands are supported in camelcase and lowercase first letter.
 
 ```js
 let promise = client.execSync("getBlock", "", 1, false)

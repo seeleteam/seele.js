@@ -28,6 +28,21 @@ client.getInfo(function(info) {
 </script>
 ```
 
+Also, when you import `seele.js` /`seele_browerify.js`, the global variable `SeeleWebProvider` is set, so you can use it directly, just like:
+
+```js
+client = new SeeleWebProvider();
+client.getInfo(function(info) {
+  if (info instanceof Error){
+    console.log("Error")
+    console.log(info)
+    return
+  }
+
+  console.log(info)
+});
+```
+
 ## Example
 
 If the last parameter is not bound to a callback function, the console.log is used by default.

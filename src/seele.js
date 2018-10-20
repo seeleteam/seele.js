@@ -12,7 +12,7 @@ var api  = require('./commands')
 * @param {String} password Basic authentication i.e. 'user:password' to compute an Authorization header. Not used.
 * @param {Number} timeout A number specifying the socket timeout in milliseconds. This will set the timeout before the socket is connected. Default: '30000'.
 */
-class seeleWebProvider {
+class SeeleWebProvider {
   constructor(host, port, headers, user, password, timeout) {
     this.host = host || 'localhost';
     this.port = port || '8037';
@@ -207,11 +207,14 @@ class seeleWebProvider {
 
 for (const namespace in api.commands) {
   api.commands[namespace].forEach(command => {
-    var cp = seeleWebProvider.prototype
+    var cp = SeeleWebProvider.prototype
     cp[command] = function() {
       this.send(command, ...arguments);
     }
   })
 }
 
-module.exports = seeleWebProvider;
+if (typeof window !== 'undefined' && typeof window.SeeleWebProvider === 'undefined'){
+  window.SeeleWebProvider = SeeleWebProvider;
+}
+module.exports = SeeleWebProvider;

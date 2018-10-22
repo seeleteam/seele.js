@@ -1,6 +1,6 @@
 {
   "name": "seele.js",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Generic script api library for Seele blockchain",
   "main": "./index.js",
   "scripts": {
@@ -13,7 +13,8 @@
   "keywords": [
     "seele",
     "javascript",
-    "rpc-api"
+    "rpc-api",
+    "meteor"
   ],
   "author": "ffwang@seelenet.com",
   "license": "MIT",
@@ -25,6 +26,8 @@
     "keccak": "^1.4.0",
     "lib": "^3.0.2",
     "rlp": "^2.1.0",
-    "secp256k1": "^3.5.2"
+    "secp256k1": "^3.5.2",
+    "xhr2-cookies": "^1.1.0",
+    "xmlhttprequest": "^1.8.0"
   }
 }

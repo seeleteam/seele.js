@@ -2,9 +2,15 @@
 
 SeeleJS is a generic scripting API library for the Seele blockchain.
 
+## Import
+
+### NPM
+
 `npm install seele.js`
 
 > Due to problems with the keccak library, some errors will occur during installation, but if `Keccak bindings compilation fail. Pure JS implementation will be used.` occurs, it doesn't matter, the package is normal. Follow-up will consider blocking this error.
+
+### Browser
 
 Alternatively, if you are in the client/browser you can import `seele_browserify.js`(github.com/seeleteam/seele.js/browserify/seele_browserify.js) directly , then you can use SeeleJS.
 
@@ -16,10 +22,10 @@ Alternatively, if you are in the client/browser you can import `seele_browserify
 var seelejs = require('seele.js');
 
 var client = new seelejs();
-client.getInfo(function(info) {
-  if (info instanceof Error){
+client.getInfo(function(err, info) {
+  if (err){
     console.log("Error")
-    console.log(info)
+    console.log(err)
     return
   }
 
@@ -28,14 +34,19 @@ client.getInfo(function(info) {
 </script>
 ```
 
+### Meteor
+
+`wangff:seelejs@0.0.6` Or `meteor add wangff:seelejs@0.0.6`
+
 Also, when you import `seele.js` /`seele_browerify.js`, the global variable `SeeleWebProvider` is set, so you can use it directly, just like:
 
 ```js
-client = new SeeleWebProvider();
-client.getInfo(function(info) {
-  if (info instanceof Error){
+var client = new SeeleWebProvider();
+
+client.getInfo(function(err, info) {
+  if (err){
     console.log("Error")
-    console.log(info)
+    console.log(err)
     return
   }
 
@@ -44,6 +55,8 @@ client.getInfo(function(info) {
 ```
 
 ## Example
+
+### Async Call
 
 If the last parameter is not bound to a callback function, the console.log is used by default.
 
@@ -76,6 +89,16 @@ client.send("getBlock", "", 1, false, function(info) {
 });
 ```
 
+### Sync Call
+
+```js
+var seelejs = require('seele.js');
+
+var client = new seelejs();
+var info = client.sendSync("getInfo");
+console.log(info);
+```
+
 ## Options
 
 You can pass options to the initialization function or use the default options.
@@ -83,19 +106,18 @@ You can pass options to the initialization function or use the default options.
 ```js
 var seelejs = require('seele.js');
 
-function seelejs(host, port, headers, user, password, timeout){
+function seelejs(host, headers, user, password, timeout){
   ...
 };
 ```
 
 Available options and default values:
 
-+ host(String) : A domain name or IP address of the server to issue the request to. Default: *localhost*.
-+ port(String) : ort Port of remote server. Default: *8037*.
++ host(String) : The communication protocol plus the domain name or IP address plus the requested server port. Default: *`http://localhost:8037`*.
 + headers(Object) : An object containing request headers, the format must be [{'name':'', 'vaule':''}, {'name':'', 'vaule':''}...].
-+ user(String) : Basic authentication i.e. 'user:password' to compute an Authorization header. Not used.
-+ password(String) : Basic authentication i.e. 'user:password' to compute an Authorization header. Not used.
-+ timeout(Number) : timeout A number specifying the socket timeout in milliseconds. This will set the timeout before the socket is connected. Default: *30000*.
++ user(String) : Basic authentication i.e. 'user:password' to compute an Authorization header. `Not used`.
++ password(String) : Basic authentication i.e. 'user:password' to compute an Authorization header. `Not used`.
++ timeout(Number) : timeout A number specifying the socket timeout in milliseconds. This will set the timeout before the socket is connected. Default: *`30000`*.
 
 ## Methods
 
@@ -136,37 +158,8 @@ Sends the given command with optional arguments. This function will return a Pro
 you can use to handle the result. All of the API commands are supported in camelcase and lowercase first letter.
 
 ```js
-var task1 = function(result){
-    console.log("task1")
-    errorTask(result)
-    console.log(result)
-    return client.sendSync("getInfo")
-}
-
-var task2 = function(result){
-    console.log("task2")
-    errorTask(result)
-    console.log(result)
-    return result.Coinbase
-}
-
-var callback = function(result){
-    console.log("callback")
-    errorTask(result)
-    console.log(result)
-}
-
-var errorTask = function(data){
-    if (data instanceof Error){
-        console.log(data)
-        throw data
-    }
-
-    return data
-}
-
-let promise = client.sendSync("getBlock", "", 1, false)
-promise.then(task1).then(task2).then(callback).catch(promise.then(task1).then(task2).then(callback).catch(callback)
+var result = client.sendSync("getInfo")
+console.log("sendSync"+JSON.stringify(result))
 ```
 
 ### .exec(command [string], ...arguments..., callback [function])
@@ -194,12 +187,8 @@ Executes the given command with optional arguments. This function will return a 
 you can use to handle the result. All of the API commands are supported in camelcase and lowercase first letter.
 
 ```js
-let promise = client.execSync("getBlock", "", 1, false)
-promise.then(function(info){
-  console.log(info);
-}).catch(function(err){
-  console.log(err);
-})
+var result = client.execSync("getInfo")
+console.log("execSync"+JSON.stringify(result))
 ```
 
 ### .generateTx(privatekey [Hex String], rawTx [JSON String]) return tx [Object]
@@ -227,6 +216,11 @@ tx = generateTx(privatekey, rawTx)
 Filtering transactions for a specific address based on block height, an error occurs if the block height does not exist. If the height is -1, it will filter the current block. When the flag is 1, the transaction `from` equal to the `address` is filtered in the block. When the flag is 2, the transaction `to` equal to the `address` is filtered in the block.
 
 ```js
-client.filterBlockTx(123, "0x0000000000000000000000000000000000000000", "1")
-client.filterBlockTx(-1, "0x4c10f2cd2159bb432094e3be7e17904c2b4aeb21", "2")
+var txs = client.filterBlockTx(-1, "0x4c10f2cd2159bb432094e3be7e17904c2b4aeb21", "2")
+console.log("sync:"+JSON.stringify(txs))
+
+console.log("asdfasdf")
+client.filterBlockTx(123, "0x0000000000000000000000000000000000000000", "1", function(txs){
+    console.log("async:"+JSON.stringify(txs))
+})
 ```

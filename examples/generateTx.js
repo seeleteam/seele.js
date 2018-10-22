@@ -16,11 +16,10 @@ var tx = client.generateTx("0x24ce9cadcc9207c94296db166ab7a0fa686f2a6d29f7ea54fe
 
 console.log(tx);
 
-client.addTx(tx, function(result){
-	if (result instanceof Error){
-		console.log("Error")
-		console.log(result)
-		return 
+client.addTx(tx, function(err, result){
+	if (err){
+		console.log(err)
+		return
 	}
 	
 	console.log(result)

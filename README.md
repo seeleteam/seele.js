@@ -36,7 +36,7 @@ client.getInfo(function(err, info) {
 
 ### Meteor
 
-`wangff:seelejs@0.0.6` Or `meteor add wangff:seelejs@0.0.6`
+`wangff:seelejs@0.0.7` Or `meteor add wangff:seelejs@0.0.7`
 
 Also, when you import `seele.js` /`seele_browerify.js`, the global variable `SeeleWebProvider` is set, so you can use it directly, just like:
 

@@ -92,6 +92,7 @@ class SeeleWebProvider {
           result = JSON.parse(result);
           if (result.error) {
             fn(new Error(JSON.stringify(result)));
+            return;
           }
 
           fn(null, result.result);

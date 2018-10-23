@@ -113,7 +113,7 @@ module.exports = {
   encode: encode
 }
 
-},{"safe-buffer":48}],2:[function(require,module,exports){
+},{"safe-buffer":49}],2:[function(require,module,exports){
 (function (module, exports) {
   'use strict';
 
@@ -3542,7 +3542,7 @@ module.exports = {
   };
 })(typeof module === 'undefined' || module, this);
 
-},{"buffer":71}],3:[function(require,module,exports){
+},{"buffer":80}],3:[function(require,module,exports){
 var r;
 
 module.exports = function rand(len) {
@@ -3609,7 +3609,7 @@ if (typeof self === 'object') {
   }
 }
 
-},{"crypto":71}],4:[function(require,module,exports){
+},{"crypto":80}],4:[function(require,module,exports){
 var Buffer = require('safe-buffer').Buffer
 var Transform = require('stream').Transform
 var StringDecoder = require('string_decoder').StringDecoder
@@ -3710,7 +3710,285 @@ CipherBase.prototype._toString = function (value, enc, fin) {
 
 module.exports = CipherBase
 
-},{"inherits":36,"safe-buffer":48,"stream":100,"string_decoder":105}],5:[function(require,module,exports){
+},{"inherits":37,"safe-buffer":49,"stream":111,"string_decoder":116}],5:[function(require,module,exports){
+/* jshint node: true */
+(function () {
+    "use strict";
+
+    function CookieAccessInfo(domain, path, secure, script) {
+        if (this instanceof CookieAccessInfo) {
+            this.domain = domain || undefined;
+            this.path = path || "/";
+            this.secure = !!secure;
+            this.script = !!script;
+            return this;
+        }
+        return new CookieAccessInfo(domain, path, secure, script);
+    }
+    CookieAccessInfo.All = Object.freeze(Object.create(null));
+    exports.CookieAccessInfo = CookieAccessInfo;
+
+    function Cookie(cookiestr, request_domain, request_path) {
+        if (cookiestr instanceof Cookie) {
+            return cookiestr;
+        }
+        if (this instanceof Cookie) {
+            this.name = null;
+            this.value = null;
+            this.expiration_date = Infinity;
+            this.path = String(request_path || "/");
+            this.explicit_path = false;
+            this.domain = request_domain || null;
+            this.explicit_domain = false;
+            this.secure = false; //how to define default?
+            this.noscript = false; //httponly
+            if (cookiestr) {
+                this.parse(cookiestr, request_domain, request_path);
+            }
+            return this;
+        }
+        return new Cookie(cookiestr, request_domain, request_path);
+    }
+    exports.Cookie = Cookie;
+
+    Cookie.prototype.toString = function toString() {
+        var str = [this.name + "=" + this.value];
+        if (this.expiration_date !== Infinity) {
+            str.push("expires=" + (new Date(this.expiration_date)).toGMTString());
+        }
+        if (this.domain) {
+            str.push("domain=" + this.domain);
+        }
+        if (this.path) {
+            str.push("path=" + this.path);
+        }
+        if (this.secure) {
+            str.push("secure");
+        }
+        if (this.noscript) {
+            str.push("httponly");
+        }
+        return str.join("; ");
+    };
+
+    Cookie.prototype.toValueString = function toValueString() {
+        return this.name + "=" + this.value;
+    };
+
+    var cookie_str_splitter = /[:](?=\s*[a-zA-Z0-9_\-]+\s*[=])/g;
+    Cookie.prototype.parse = function parse(str, request_domain, request_path) {
+        if (this instanceof Cookie) {
+            var parts = str.split(";").filter(function (value) {
+                    return !!value;
+                });
+            var i;
+
+            var pair = parts[0].match(/([^=]+)=([\s\S]*)/);
+            if (!pair) {
+                console.warn("Invalid cookie header encountered. Header: '"+str+"'");
+                return;
+            }
+
+            var key = pair[1];
+            var value = pair[2];
+            if ( typeof key !== 'string' || key.length === 0 || typeof value !== 'string' ) {
+                console.warn("Unable to extract values from cookie header. Cookie: '"+str+"'");
+                return;
+            }
+
+            this.name = key;
+            this.value = value;
+
+            for (i = 1; i < parts.length; i += 1) {
+                pair = parts[i].match(/([^=]+)(?:=([\s\S]*))?/);
+                key = pair[1].trim().toLowerCase();
+                value = pair[2];
+                switch (key) {
+                case "httponly":
+                    this.noscript = true;
+                    break;
+                case "expires":
+                    this.expiration_date = value ?
+                            Number(Date.parse(value)) :
+                            Infinity;
+                    break;
+                case "path":
+                    this.path = value ?
+                            value.trim() :
+                            "";
+                    this.explicit_path = true;
+                    break;
+                case "domain":
+                    this.domain = value ?
+                            value.trim() :
+                            "";
+                    this.explicit_domain = !!this.domain;
+                    break;
+                case "secure":
+                    this.secure = true;
+                    break;
+                }
+            }
+
+            if (!this.explicit_path) {
+               this.path = request_path || "/";
+            }
+            if (!this.explicit_domain) {
+               this.domain = request_domain;
+            }
+
+            return this;
+        }
+        return new Cookie().parse(str, request_domain, request_path);
+    };
+
+    Cookie.prototype.matches = function matches(access_info) {
+        if (access_info === CookieAccessInfo.All) {
+          return true;
+        }
+        if (this.noscript && access_info.script ||
+                this.secure && !access_info.secure ||
+                !this.collidesWith(access_info)) {
+            return false;
+        }
+        return true;
+    };
+
+    Cookie.prototype.collidesWith = function collidesWith(access_info) {
+        if ((this.path && !access_info.path) || (this.domain && !access_info.domain)) {
+            return false;
+        }
+        if (this.path && access_info.path.indexOf(this.path) !== 0) {
+            return false;
+        }
+        if (this.explicit_path && access_info.path.indexOf( this.path ) !== 0) {
+           return false;
+        }
+        var access_domain = access_info.domain && access_info.domain.replace(/^[\.]/,'');
+        var cookie_domain = this.domain && this.domain.replace(/^[\.]/,'');
+        if (cookie_domain === access_domain) {
+            return true;
+        }
+        if (cookie_domain) {
+            if (!this.explicit_domain) {
+                return false; // we already checked if the domains were exactly the same
+            }
+            var wildcard = access_domain.indexOf(cookie_domain);
+            if (wildcard === -1 || wildcard !== access_domain.length - cookie_domain.length) {
+                return false;
+            }
+            return true;
+        }
+        return true;
+    };
+
+    function CookieJar() {
+        var cookies, cookies_list, collidable_cookie;
+        if (this instanceof CookieJar) {
+            cookies = Object.create(null); //name: [Cookie]
+
+            this.setCookie = function setCookie(cookie, request_domain, request_path) {
+                var remove, i;
+                cookie = new Cookie(cookie, request_domain, request_path);
+                //Delete the cookie if the set is past the current time
+                remove = cookie.expiration_date <= Date.now();
+                if (cookies[cookie.name] !== undefined) {
+                    cookies_list = cookies[cookie.name];
+                    for (i = 0; i < cookies_list.length; i += 1) {
+                        collidable_cookie = cookies_list[i];
+                        if (collidable_cookie.collidesWith(cookie)) {
+                            if (remove) {
+                                cookies_list.splice(i, 1);
+                                if (cookies_list.length === 0) {
+                                    delete cookies[cookie.name];
+                                }
+                                return false;
+                            }
+                            cookies_list[i] = cookie;
+                            return cookie;
+                        }
+                    }
+                    if (remove) {
+                        return false;
+                    }
+                    cookies_list.push(cookie);
+                    return cookie;
+                }
+                if (remove) {
+                    return false;
+                }
+                cookies[cookie.name] = [cookie];
+                return cookies[cookie.name];
+            };
+            //returns a cookie
+            this.getCookie = function getCookie(cookie_name, access_info) {
+                var cookie, i;
+                cookies_list = cookies[cookie_name];
+                if (!cookies_list) {
+                    return;
+                }
+                for (i = 0; i < cookies_list.length; i += 1) {
+                    cookie = cookies_list[i];
+                    if (cookie.expiration_date <= Date.now()) {
+                        if (cookies_list.length === 0) {
+                            delete cookies[cookie.name];
+                        }
+                        continue;
+                    }
+
+                    if (cookie.matches(access_info)) {
+                        return cookie;
+                    }
+                }
+            };
+            //returns a list of cookies
+            this.getCookies = function getCookies(access_info) {
+                var matches = [], cookie_name, cookie;
+                for (cookie_name in cookies) {
+                    cookie = this.getCookie(cookie_name, access_info);
+                    if (cookie) {
+                        matches.push(cookie);
+                    }
+                }
+                matches.toString = function toString() {
+                    return matches.join(":");
+                };
+                matches.toValueString = function toValueString() {
+                    return matches.map(function (c) {
+                        return c.toValueString();
+                    }).join(';');
+                };
+                return matches;
+            };
+
+            return this;
+        }
+        return new CookieJar();
+    }
+    exports.CookieJar = CookieJar;
+
+    //returns list of cookies that were set correctly. Cookies that are expired and removed are not returned.
+    CookieJar.prototype.setCookies = function setCookies(cookies, request_domain, request_path) {
+        cookies = Array.isArray(cookies) ?
+                cookies :
+                cookies.split(cookie_str_splitter);
+        var successful = [],
+            i,
+            cookie;
+        cookies = cookies.map(function(item){
+            return new Cookie(item, request_domain, request_path);
+        });
+        for (i = 0; i < cookies.length; i += 1) {
+            cookie = cookies[i];
+            if (this.setCookie(cookie, request_domain, request_path)) {
+                successful.push(cookie);
+            }
+        }
+        return successful;
+    };
+}());
+
+},{}],6:[function(require,module,exports){
 'use strict'
 var inherits = require('inherits')
 var MD5 = require('md5.js')
@@ -3742,7 +4020,7 @@ module.exports = function createHash (alg) {
   return new Hash(sha(alg))
 }
 
-},{"cipher-base":4,"inherits":36,"md5.js":43,"ripemd160":46,"sha.js":56}],6:[function(require,module,exports){
+},{"cipher-base":4,"inherits":37,"md5.js":44,"ripemd160":47,"sha.js":57}],7:[function(require,module,exports){
 'use strict';
 
 var elliptic = exports;
@@ -3757,7 +4035,7 @@ elliptic.curves = require('./elliptic/curves');
 elliptic.ec = require('./elliptic/ec');
 elliptic.eddsa = require('./elliptic/eddsa');
 
-},{"../package.json":21,"./elliptic/curve":9,"./elliptic/curves":12,"./elliptic/ec":13,"./elliptic/eddsa":16,"./elliptic/utils":20,"brorand":3}],7:[function(require,module,exports){
+},{"../package.json":22,"./elliptic/curve":10,"./elliptic/curves":13,"./elliptic/ec":14,"./elliptic/eddsa":17,"./elliptic/utils":21,"brorand":3}],8:[function(require,module,exports){
 'use strict';
 
 var BN = require('bn.js');
@@ -4134,7 +4412,7 @@ BasePoint.prototype.dblp = function dblp(k) {
   return r;
 };
 
-},{"../../elliptic":6,"bn.js":2}],8:[function(require,module,exports){
+},{"../../elliptic":7,"bn.js":2}],9:[function(require,module,exports){
 'use strict';
 
 var curve = require('../curve');
@@ -4569,7 +4847,7 @@ Point.prototype.eqXToP = function eqXToP(x) {
 Point.prototype.toP = Point.prototype.normalize;
 Point.prototype.mixedAdd = Point.prototype.add;
 
-},{"../../elliptic":6,"../curve":9,"bn.js":2,"inherits":36}],9:[function(require,module,exports){
+},{"../../elliptic":7,"../curve":10,"bn.js":2,"inherits":37}],10:[function(require,module,exports){
 'use strict';
 
 var curve = exports;
@@ -4579,7 +4857,7 @@ curve.short = require('./short');
 curve.mont = require('./mont');
 curve.edwards = require('./edwards');
 
-},{"./base":7,"./edwards":8,"./mont":10,"./short":11}],10:[function(require,module,exports){
+},{"./base":8,"./edwards":9,"./mont":11,"./short":12}],11:[function(require,module,exports){
 'use strict';
 
 var curve = require('../curve');
@@ -4761,7 +5039,7 @@ Point.prototype.getX = function getX() {
   return this.x.fromRed();
 };
 
-},{"../../elliptic":6,"../curve":9,"bn.js":2,"inherits":36}],11:[function(require,module,exports){
+},{"../../elliptic":7,"../curve":10,"bn.js":2,"inherits":37}],12:[function(require,module,exports){
 'use strict';
 
 var curve = require('../curve');
@@ -5700,7 +5978,7 @@ JPoint.prototype.isInfinity = function isInfinity() {
   return this.z.cmpn(0) === 0;
 };
 
-},{"../../elliptic":6,"../curve":9,"bn.js":2,"inherits":36}],12:[function(require,module,exports){
+},{"../../elliptic":7,"../curve":10,"bn.js":2,"inherits":37}],13:[function(require,module,exports){
 'use strict';
 
 var curves = exports;
@@ -5907,7 +6185,7 @@ defineCurve('secp256k1', {
   ]
 });
 
-},{"../elliptic":6,"./precomputed/secp256k1":19,"hash.js":23}],13:[function(require,module,exports){
+},{"../elliptic":7,"./precomputed/secp256k1":20,"hash.js":24}],14:[function(require,module,exports){
 'use strict';
 
 var BN = require('bn.js');
@@ -6149,7 +6427,7 @@ EC.prototype.getKeyRecoveryParam = function(e, signature, Q, enc) {
   throw new Error('Unable to find valid recovery factor');
 };
 
-},{"../../elliptic":6,"./key":14,"./signature":15,"bn.js":2,"hmac-drbg":35}],14:[function(require,module,exports){
+},{"../../elliptic":7,"./key":15,"./signature":16,"bn.js":2,"hmac-drbg":36}],15:[function(require,module,exports){
 'use strict';
 
 var BN = require('bn.js');
@@ -6270,7 +6548,7 @@ KeyPair.prototype.inspect = function inspect() {
          ' pub: ' + (this.pub && this.pub.inspect()) + ' >';
 };
 
-},{"../../elliptic":6,"bn.js":2}],15:[function(require,module,exports){
+},{"../../elliptic":7,"bn.js":2}],16:[function(require,module,exports){
 'use strict';
 
 var BN = require('bn.js');
@@ -6407,7 +6685,7 @@ Signature.prototype.toDER = function toDER(enc) {
   return utils.encode(res, enc);
 };
 
-},{"../../elliptic":6,"bn.js":2}],16:[function(require,module,exports){
+},{"../../elliptic":7,"bn.js":2}],17:[function(require,module,exports){
 'use strict';
 
 var hash = require('hash.js');
@@ -6527,7 +6805,7 @@ EDDSA.prototype.isPoint = function isPoint(val) {
   return val instanceof this.pointClass;
 };
 
-},{"../../elliptic":6,"./key":17,"./signature":18,"hash.js":23}],17:[function(require,module,exports){
+},{"../../elliptic":7,"./key":18,"./signature":19,"hash.js":24}],18:[function(require,module,exports){
 'use strict';
 
 var elliptic = require('../../elliptic');
@@ -6625,7 +6903,7 @@ KeyPair.prototype.getPublic = function getPublic(enc) {
 
 module.exports = KeyPair;
 
-},{"../../elliptic":6}],18:[function(require,module,exports){
+},{"../../elliptic":7}],19:[function(require,module,exports){
 'use strict';
 
 var BN = require('bn.js');
@@ -6693,7 +6971,7 @@ Signature.prototype.toHex = function toHex() {
 
 module.exports = Signature;
 
-},{"../../elliptic":6,"bn.js":2}],19:[function(require,module,exports){
+},{"../../elliptic":7,"bn.js":2}],20:[function(require,module,exports){
 module.exports = {
   doubles: {
     step: 4,
@@ -7475,7 +7753,7 @@ module.exports = {
   }
 };
 
-},{}],20:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 'use strict';
 
 var utils = exports;
@@ -7597,7 +7875,7 @@ function intFromLE(bytes) {
 utils.intFromLE = intFromLE;
 
 
-},{"bn.js":2,"minimalistic-assert":44,"minimalistic-crypto-utils":45}],21:[function(require,module,exports){
+},{"bn.js":2,"minimalistic-assert":45,"minimalistic-crypto-utils":46}],22:[function(require,module,exports){
 module.exports={
   "_args": [
     [
@@ -7688,7 +7966,7 @@ module.exports={
   "version": "6.4.1"
 }
 
-},{}],22:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 'use strict'
 var Buffer = require('safe-buffer').Buffer
 var Transform = require('stream').Transform
@@ -7785,7 +8063,7 @@ HashBase.prototype._digest = function () {
 
 module.exports = HashBase
 
-},{"inherits":36,"safe-buffer":48,"stream":100}],23:[function(require,module,exports){
+},{"inherits":37,"safe-buffer":49,"stream":111}],24:[function(require,module,exports){
 var hash = exports;
 
 hash.utils = require('./hash/utils');
@@ -7802,7 +8080,7 @@ hash.sha384 = hash.sha.sha384;
 hash.sha512 = hash.sha.sha512;
 hash.ripemd160 = hash.ripemd.ripemd160;
 
-},{"./hash/common":24,"./hash/hmac":25,"./hash/ripemd":26,"./hash/sha":27,"./hash/utils":34}],24:[function(require,module,exports){
+},{"./hash/common":25,"./hash/hmac":26,"./hash/ripemd":27,"./hash/sha":28,"./hash/utils":35}],25:[function(require,module,exports){
 'use strict';
 
 var utils = require('./utils');
@@ -7896,7 +8174,7 @@ BlockHash.prototype._pad = function pad() {
   return res;
 };
 
-},{"./utils":34,"minimalistic-assert":44}],25:[function(require,module,exports){
+},{"./utils":35,"minimalistic-assert":45}],26:[function(require,module,exports){
 'use strict';
 
 var utils = require('./utils');
@@ -7945,7 +8223,7 @@ Hmac.prototype.digest = function digest(enc) {
   return this.outer.digest(enc);
 };
 
-},{"./utils":34,"minimalistic-assert":44}],26:[function(require,module,exports){
+},{"./utils":35,"minimalistic-assert":45}],27:[function(require,module,exports){
 'use strict';
 
 var utils = require('./utils');
@@ -8093,7 +8371,7 @@ var sh = [
   8, 5, 12, 9, 12, 5, 14, 6, 8, 13, 6, 5, 15, 13, 11, 11
 ];
 
-},{"./common":24,"./utils":34}],27:[function(require,module,exports){
+},{"./common":25,"./utils":35}],28:[function(require,module,exports){
 'use strict';
 
 exports.sha1 = require('./sha/1');
@@ -8102,7 +8380,7 @@ exports.sha256 = require('./sha/256');
 exports.sha384 = require('./sha/384');
 exports.sha512 = require('./sha/512');
 
-},{"./sha/1":28,"./sha/224":29,"./sha/256":30,"./sha/384":31,"./sha/512":32}],28:[function(require,module,exports){
+},{"./sha/1":29,"./sha/224":30,"./sha/256":31,"./sha/384":32,"./sha/512":33}],29:[function(require,module,exports){
 'use strict';
 
 var utils = require('../utils');
@@ -8178,7 +8456,7 @@ SHA1.prototype._digest = function digest(enc) {
     return utils.split32(this.h, 'big');
 };
 
-},{"../common":24,"../utils":34,"./common":33}],29:[function(require,module,exports){
+},{"../common":25,"../utils":35,"./common":34}],30:[function(require,module,exports){
 'use strict';
 
 var utils = require('../utils');
@@ -8210,7 +8488,7 @@ SHA224.prototype._digest = function digest(enc) {
 };
 
 
-},{"../utils":34,"./256":30}],30:[function(require,module,exports){
+},{"../utils":35,"./256":31}],31:[function(require,module,exports){
 'use strict';
 
 var utils = require('../utils');
@@ -8317,7 +8595,7 @@ SHA256.prototype._digest = function digest(enc) {
     return utils.split32(this.h, 'big');
 };
 
-},{"../common":24,"../utils":34,"./common":33,"minimalistic-assert":44}],31:[function(require,module,exports){
+},{"../common":25,"../utils":35,"./common":34,"minimalistic-assert":45}],32:[function(require,module,exports){
 'use strict';
 
 var utils = require('../utils');
@@ -8354,7 +8632,7 @@ SHA384.prototype._digest = function digest(enc) {
     return utils.split32(this.h.slice(0, 12), 'big');
 };
 
-},{"../utils":34,"./512":32}],32:[function(require,module,exports){
+},{"../utils":35,"./512":33}],33:[function(require,module,exports){
 'use strict';
 
 var utils = require('../utils');
@@ -8686,7 +8964,7 @@ function g1_512_lo(xh, xl) {
   return r;
 }
 
-},{"../common":24,"../utils":34,"minimalistic-assert":44}],33:[function(require,module,exports){
+},{"../common":25,"../utils":35,"minimalistic-assert":45}],34:[function(require,module,exports){
 'use strict';
 
 var utils = require('../utils');
@@ -8737,7 +9015,7 @@ function g1_256(x) {
 }
 exports.g1_256 = g1_256;
 
-},{"../utils":34}],34:[function(require,module,exports){
+},{"../utils":35}],35:[function(require,module,exports){
 'use strict';
 
 var assert = require('minimalistic-assert');
@@ -8992,7 +9270,7 @@ function shr64_lo(ah, al, num) {
 }
 exports.shr64_lo = shr64_lo;
 
-},{"inherits":36,"minimalistic-assert":44}],35:[function(require,module,exports){
+},{"inherits":37,"minimalistic-assert":45}],36:[function(require,module,exports){
 'use strict';
 
 var hash = require('hash.js');
@@ -9107,7 +9385,7 @@ HmacDRBG.prototype.generate = function generate(len, enc, add, addEnc) {
   return utils.encode(res, enc);
 };
 
-},{"hash.js":23,"minimalistic-assert":44,"minimalistic-crypto-utils":45}],36:[function(require,module,exports){
+},{"hash.js":24,"minimalistic-assert":45,"minimalistic-crypto-utils":46}],37:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -9132,11 +9410,11 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],37:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 'use strict'
 module.exports = require('./lib/api')(require('./lib/keccak'))
 
-},{"./lib/api":38,"./lib/keccak":42}],38:[function(require,module,exports){
+},{"./lib/api":39,"./lib/keccak":43}],39:[function(require,module,exports){
 'use strict'
 var createKeccak = require('./keccak')
 var createShake = require('./shake')
@@ -9166,7 +9444,7 @@ module.exports = function (KeccakState) {
   }
 }
 
-},{"./keccak":39,"./shake":40}],39:[function(require,module,exports){
+},{"./keccak":40,"./shake":41}],40:[function(require,module,exports){
 'use strict'
 var Buffer = require('safe-buffer').Buffer
 var Transform = require('stream').Transform
@@ -9252,7 +9530,7 @@ module.exports = function (KeccakState) {
   return Keccak
 }
 
-},{"inherits":36,"safe-buffer":48,"stream":100}],40:[function(require,module,exports){
+},{"inherits":37,"safe-buffer":49,"stream":111}],41:[function(require,module,exports){
 'use strict'
 var Buffer = require('safe-buffer').Buffer
 var Transform = require('stream').Transform
@@ -9329,7 +9607,7 @@ module.exports = function (KeccakState) {
   return Shake
 }
 
-},{"inherits":36,"safe-buffer":48,"stream":100}],41:[function(require,module,exports){
+},{"inherits":37,"safe-buffer":49,"stream":111}],42:[function(require,module,exports){
 'use strict'
 var P1600_ROUND_CONSTANTS = [1, 0, 32898, 0, 32906, 2147483648, 2147516416, 2147483648, 32907, 0, 2147483649, 0, 2147516545, 2147483648, 32777, 2147483648, 138, 0, 136, 0, 2147516425, 0, 2147483658, 0, 2147516555, 0, 139, 2147483648, 32905, 2147483648, 32771, 2147483648, 32770, 2147483648, 128, 2147483648, 32778, 0, 2147483658, 2147483648, 2147516545, 2147483648, 32896, 2147483648, 2147483649, 0, 2147516424, 2147483648]
 
@@ -9518,7 +9796,7 @@ exports.p1600 = function (s) {
   }
 }
 
-},{}],42:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 'use strict'
 var Buffer = require('safe-buffer').Buffer
 var keccakState = require('./keccak-state-unroll')
@@ -9590,7 +9868,7 @@ Keccak.prototype.copy = function (dest) {
 
 module.exports = Keccak
 
-},{"./keccak-state-unroll":41,"safe-buffer":48}],43:[function(require,module,exports){
+},{"./keccak-state-unroll":42,"safe-buffer":49}],44:[function(require,module,exports){
 'use strict'
 var inherits = require('inherits')
 var HashBase = require('hash-base')
@@ -9738,7 +10016,7 @@ function fnI (a, b, c, d, m, k, s) {
 
 module.exports = MD5
 
-},{"hash-base":22,"inherits":36,"safe-buffer":48}],44:[function(require,module,exports){
+},{"hash-base":23,"inherits":37,"safe-buffer":49}],45:[function(require,module,exports){
 module.exports = assert;
 
 function assert(val, msg) {
@@ -9751,7 +10029,7 @@ assert.equal = function assertEqual(l, r, msg) {
     throw new Error(msg || ('Assertion failed: ' + l + ' != ' + r));
 };
 
-},{}],45:[function(require,module,exports){
+},{}],46:[function(require,module,exports){
 'use strict';
 
 var utils = exports;
@@ -9811,7 +10089,7 @@ utils.encode = function encode(arr, enc) {
     return arr;
 };
 
-},{}],46:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 'use strict'
 var Buffer = require('buffer').Buffer
 var inherits = require('inherits')
@@ -9976,7 +10254,7 @@ function fn5 (a, b, c, d, e, m, k, s) {
 
 module.exports = RIPEMD160
 
-},{"buffer":72,"hash-base":22,"inherits":36}],47:[function(require,module,exports){
+},{"buffer":81,"hash-base":23,"inherits":37}],48:[function(require,module,exports){
 const assert = require('assert')
 const Buffer = require('safe-buffer').Buffer
 /**
@@ -10208,7 +10486,7 @@ function toBuffer (v) {
   return v
 }
 
-},{"assert":66,"safe-buffer":48}],48:[function(require,module,exports){
+},{"assert":75,"safe-buffer":49}],49:[function(require,module,exports){
 /* eslint-disable node/no-deprecated-api */
 var buffer = require('buffer')
 var Buffer = buffer.Buffer
@@ -10272,11 +10550,11 @@ SafeBuffer.allocUnsafeSlow = function (size) {
   return buffer.SlowBuffer(size)
 }
 
-},{"buffer":72}],49:[function(require,module,exports){
+},{"buffer":81}],50:[function(require,module,exports){
 'use strict'
 module.exports = require('./lib')(require('./lib/elliptic'))
 
-},{"./lib":53,"./lib/elliptic":52}],50:[function(require,module,exports){
+},{"./lib":54,"./lib/elliptic":53}],51:[function(require,module,exports){
 (function (Buffer){
 'use strict'
 var toString = Object.prototype.toString
@@ -10324,7 +10602,7 @@ exports.isNumberInInterval = function (number, x, y, message) {
 }
 
 }).call(this,{"isBuffer":require("../../../../../../../../../../usr/local/lib/node_modules/browserify/node_modules/is-buffer/index.js")})
-},{"../../../../../../../../../../usr/local/lib/node_modules/browserify/node_modules/is-buffer/index.js":78}],51:[function(require,module,exports){
+},{"../../../../../../../../../../usr/local/lib/node_modules/browserify/node_modules/is-buffer/index.js":88}],52:[function(require,module,exports){
 'use strict'
 var Buffer = require('safe-buffer').Buffer
 var bip66 = require('bip66')
@@ -10519,7 +10797,7 @@ exports.signatureImportLax = function (sig) {
   return { r: r, s: s }
 }
 
-},{"bip66":1,"safe-buffer":48}],52:[function(require,module,exports){
+},{"bip66":1,"safe-buffer":49}],53:[function(require,module,exports){
 'use strict'
 var Buffer = require('safe-buffer').Buffer
 var createHash = require('create-hash')
@@ -10781,7 +11059,7 @@ exports.ecdhUnsafe = function (publicKey, privateKey, compressed) {
   return Buffer.from(pair.pub.mul(scalar).encode(true, compressed))
 }
 
-},{"../messages.json":54,"bn.js":2,"create-hash":5,"elliptic":6,"safe-buffer":48}],53:[function(require,module,exports){
+},{"../messages.json":55,"bn.js":2,"create-hash":6,"elliptic":7,"safe-buffer":49}],54:[function(require,module,exports){
 'use strict'
 var assert = require('./assert')
 var der = require('./der')
@@ -11028,7 +11306,7 @@ module.exports = function (secp256k1) {
   }
 }
 
-},{"./assert":50,"./der":51,"./messages.json":54}],54:[function(require,module,exports){
+},{"./assert":51,"./der":52,"./messages.json":55}],55:[function(require,module,exports){
 module.exports={
   "COMPRESSED_TYPE_INVALID": "compressed should be a boolean",
   "EC_PRIVATE_KEY_TYPE_INVALID": "private key should be a Buffer",
@@ -11067,7 +11345,7 @@ module.exports={
   "TWEAK_LENGTH_INVALID": "tweak length is invalid"
 }
 
-},{}],55:[function(require,module,exports){
+},{}],56:[function(require,module,exports){
 var Buffer = require('safe-buffer').Buffer
 
 // prototype class for hash functions
@@ -11150,7 +11428,7 @@ Hash.prototype._update = function () {
 
 module.exports = Hash
 
-},{"safe-buffer":48}],56:[function(require,module,exports){
+},{"safe-buffer":49}],57:[function(require,module,exports){
 var exports = module.exports = function SHA (algorithm) {
   algorithm = algorithm.toLowerCase()
 
@@ -11167,7 +11445,7 @@ exports.sha256 = require('./sha256')
 exports.sha384 = require('./sha384')
 exports.sha512 = require('./sha512')
 
-},{"./sha":57,"./sha1":58,"./sha224":59,"./sha256":60,"./sha384":61,"./sha512":62}],57:[function(require,module,exports){
+},{"./sha":58,"./sha1":59,"./sha224":60,"./sha256":61,"./sha384":62,"./sha512":63}],58:[function(require,module,exports){
 /*
  * A JavaScript implementation of the Secure Hash Algorithm, SHA-0, as defined
  * in FIPS PUB 180-1
@@ -11263,7 +11541,7 @@ Sha.prototype._hash = function () {
 
 module.exports = Sha
 
-},{"./hash":55,"inherits":36,"safe-buffer":48}],58:[function(require,module,exports){
+},{"./hash":56,"inherits":37,"safe-buffer":49}],59:[function(require,module,exports){
 /*
  * A JavaScript implementation of the Secure Hash Algorithm, SHA-1, as defined
  * in FIPS PUB 180-1
@@ -11364,7 +11642,7 @@ Sha1.prototype._hash = function () {
 
 module.exports = Sha1
 
-},{"./hash":55,"inherits":36,"safe-buffer":48}],59:[function(require,module,exports){
+},{"./hash":56,"inherits":37,"safe-buffer":49}],60:[function(require,module,exports){
 /**
  * A JavaScript implementation of the Secure Hash Algorithm, SHA-256, as defined
  * in FIPS 180-2
@@ -11419,7 +11697,7 @@ Sha224.prototype._hash = function () {
 
 module.exports = Sha224
 
-},{"./hash":55,"./sha256":60,"inherits":36,"safe-buffer":48}],60:[function(require,module,exports){
+},{"./hash":56,"./sha256":61,"inherits":37,"safe-buffer":49}],61:[function(require,module,exports){
 /**
  * A JavaScript implementation of the Secure Hash Algorithm, SHA-256, as defined
  * in FIPS 180-2
@@ -11556,7 +11834,7 @@ Sha256.prototype._hash = function () {
 
 module.exports = Sha256
 
-},{"./hash":55,"inherits":36,"safe-buffer":48}],61:[function(require,module,exports){
+},{"./hash":56,"inherits":37,"safe-buffer":49}],62:[function(require,module,exports){
 var inherits = require('inherits')
 var SHA512 = require('./sha512')
 var Hash = require('./hash')
@@ -11615,7 +11893,7 @@ Sha384.prototype._hash = function () {
 
 module.exports = Sha384
 
-},{"./hash":55,"./sha512":62,"inherits":36,"safe-buffer":48}],62:[function(require,module,exports){
+},{"./hash":56,"./sha512":63,"inherits":37,"safe-buffer":49}],63:[function(require,module,exports){
 var inherits = require('inherits')
 var Hash = require('./hash')
 var Buffer = require('safe-buffer').Buffer
@@ -11877,7 +12155,1276 @@ Sha512.prototype._hash = function () {
 
 module.exports = Sha512
 
-},{"./hash":55,"inherits":36,"safe-buffer":48}],63:[function(require,module,exports){
+},{"./hash":56,"inherits":37,"safe-buffer":49}],64:[function(require,module,exports){
+"use strict";
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+var SecurityError = /** @class */ (function (_super) {
+    __extends(SecurityError, _super);
+    function SecurityError() {
+        return _super !== null && _super.apply(this, arguments) || this;
+    }
+    return SecurityError;
+}(Error));
+exports.SecurityError = SecurityError;
+var InvalidStateError = /** @class */ (function (_super) {
+    __extends(InvalidStateError, _super);
+    function InvalidStateError() {
+        return _super !== null && _super.apply(this, arguments) || this;
+    }
+    return InvalidStateError;
+}(Error));
+exports.InvalidStateError = InvalidStateError;
+var NetworkError = /** @class */ (function (_super) {
+    __extends(NetworkError, _super);
+    function NetworkError() {
+        return _super !== null && _super.apply(this, arguments) || this;
+    }
+    return NetworkError;
+}(Error));
+exports.NetworkError = NetworkError;
+var SyntaxError = /** @class */ (function (_super) {
+    __extends(SyntaxError, _super);
+    function SyntaxError() {
+        return _super !== null && _super.apply(this, arguments) || this;
+    }
+    return SyntaxError;
+}(Error));
+exports.SyntaxError = SyntaxError;
+
+},{}],65:[function(require,module,exports){
+"use strict";
+function __export(m) {
+    for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
+}
+Object.defineProperty(exports, "__esModule", { value: true });
+__export(require("./xml-http-request"));
+var xml_http_request_event_target_1 = require("./xml-http-request-event-target");
+exports.XMLHttpRequestEventTarget = xml_http_request_event_target_1.XMLHttpRequestEventTarget;
+
+},{"./xml-http-request":69,"./xml-http-request-event-target":67}],66:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var ProgressEvent = /** @class */ (function () {
+    function ProgressEvent(type) {
+        this.type = type;
+        this.bubbles = false;
+        this.cancelable = false;
+        this.loaded = 0;
+        this.lengthComputable = false;
+        this.total = 0;
+    }
+    return ProgressEvent;
+}());
+exports.ProgressEvent = ProgressEvent;
+
+},{}],67:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var XMLHttpRequestEventTarget = /** @class */ (function () {
+    function XMLHttpRequestEventTarget() {
+        this.listeners = {};
+    }
+    XMLHttpRequestEventTarget.prototype.addEventListener = function (eventType, listener) {
+        eventType = eventType.toLowerCase();
+        this.listeners[eventType] = this.listeners[eventType] || [];
+        this.listeners[eventType].push(listener.handleEvent || listener);
+    };
+    XMLHttpRequestEventTarget.prototype.removeEventListener = function (eventType, listener) {
+        eventType = eventType.toLowerCase();
+        if (!this.listeners[eventType]) {
+            return;
+        }
+        var index = this.listeners[eventType].indexOf(listener.handleEvent || listener);
+        if (index < 0) {
+            return;
+        }
+        this.listeners[eventType].splice(index, 1);
+    };
+    XMLHttpRequestEventTarget.prototype.dispatchEvent = function (event) {
+        var eventType = event.type.toLowerCase();
+        event.target = this; // TODO: set event.currentTarget?
+        if (this.listeners[eventType]) {
+            for (var _i = 0, _a = this.listeners[eventType]; _i < _a.length; _i++) {
+                var listener_1 = _a[_i];
+                listener_1.call(this, event);
+            }
+        }
+        var listener = this["on" + eventType];
+        if (listener) {
+            listener.call(this, event);
+        }
+        return true;
+    };
+    return XMLHttpRequestEventTarget;
+}());
+exports.XMLHttpRequestEventTarget = XMLHttpRequestEventTarget;
+
+},{}],68:[function(require,module,exports){
+(function (Buffer){
+"use strict";
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+var xml_http_request_event_target_1 = require("./xml-http-request-event-target");
+var XMLHttpRequestUpload = /** @class */ (function (_super) {
+    __extends(XMLHttpRequestUpload, _super);
+    function XMLHttpRequestUpload() {
+        var _this = _super.call(this) || this;
+        _this._contentType = null;
+        _this._body = null;
+        _this._reset();
+        return _this;
+    }
+    XMLHttpRequestUpload.prototype._reset = function () {
+        this._contentType = null;
+        this._body = null;
+    };
+    XMLHttpRequestUpload.prototype._setData = function (data) {
+        if (data == null) {
+            return;
+        }
+        if (typeof data === 'string') {
+            if (data.length !== 0) {
+                this._contentType = 'text/plain;charset=UTF-8';
+            }
+            this._body = new Buffer(data, 'utf-8');
+        }
+        else if (Buffer.isBuffer(data)) {
+            this._body = data;
+        }
+        else if (data instanceof ArrayBuffer) {
+            var body = new Buffer(data.byteLength);
+            var view = new Uint8Array(data);
+            for (var i = 0; i < data.byteLength; i++) {
+                body[i] = view[i];
+            }
+            this._body = body;
+        }
+        else if (data.buffer && data.buffer instanceof ArrayBuffer) {
+            var body = new Buffer(data.byteLength);
+            var offset = data.byteOffset;
+            var view = new Uint8Array(data.buffer);
+            for (var i = 0; i < data.byteLength; i++) {
+                body[i] = view[i + offset];
+            }
+            this._body = body;
+        }
+        else {
+            throw new Error("Unsupported send() data " + data);
+        }
+    };
+    XMLHttpRequestUpload.prototype._finalizeHeaders = function (headers, loweredHeaders) {
+        if (this._contentType && !loweredHeaders['content-type']) {
+            headers['Content-Type'] = this._contentType;
+        }
+        if (this._body) {
+            headers['Content-Length'] = this._body.length.toString();
+        }
+    };
+    XMLHttpRequestUpload.prototype._startUpload = function (request) {
+        if (this._body) {
+            request.write(this._body);
+        }
+        request.end();
+    };
+    return XMLHttpRequestUpload;
+}(xml_http_request_event_target_1.XMLHttpRequestEventTarget));
+exports.XMLHttpRequestUpload = XMLHttpRequestUpload;
+
+}).call(this,require("buffer").Buffer)
+},{"./xml-http-request-event-target":67,"buffer":81}],69:[function(require,module,exports){
+(function (process,Buffer){
+"use strict";
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+var __assign = (this && this.__assign) || Object.assign || function(t) {
+    for (var s, i = 1, n = arguments.length; i < n; i++) {
+        s = arguments[i];
+        for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+            t[p] = s[p];
+    }
+    return t;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+var http = require("http");
+var https = require("https");
+var os = require("os");
+var url = require("url");
+var progress_event_1 = require("./progress-event");
+var errors_1 = require("./errors");
+var xml_http_request_event_target_1 = require("./xml-http-request-event-target");
+var xml_http_request_upload_1 = require("./xml-http-request-upload");
+var Cookie = require("cookiejar");
+var XMLHttpRequest = /** @class */ (function (_super) {
+    __extends(XMLHttpRequest, _super);
+    function XMLHttpRequest(options) {
+        if (options === void 0) { options = {}; }
+        var _this = _super.call(this) || this;
+        _this.UNSENT = XMLHttpRequest.UNSENT;
+        _this.OPENED = XMLHttpRequest.OPENED;
+        _this.HEADERS_RECEIVED = XMLHttpRequest.HEADERS_RECEIVED;
+        _this.LOADING = XMLHttpRequest.LOADING;
+        _this.DONE = XMLHttpRequest.DONE;
+        _this.onreadystatechange = null;
+        _this.readyState = XMLHttpRequest.UNSENT;
+        _this.response = null;
+        _this.responseText = '';
+        _this.responseType = '';
+        _this.status = 0; // TODO: UNSENT?
+        _this.statusText = '';
+        _this.timeout = 0;
+        _this.upload = new xml_http_request_upload_1.XMLHttpRequestUpload();
+        _this.responseUrl = '';
+        _this.withCredentials = false;
+        _this._method = null;
+        _this._url = null;
+        _this._sync = false;
+        _this._headers = {};
+        _this._loweredHeaders = {};
+        _this._mimeOverride = null; // TODO: is type right?
+        _this._request = null;
+        _this._response = null;
+        _this._responseParts = null;
+        _this._responseHeaders = null;
+        _this._aborting = null; // TODO: type?
+        _this._error = null; // TODO: type?
+        _this._loadedBytes = 0;
+        _this._totalBytes = 0;
+        _this._lengthComputable = false;
+        _this._restrictedMethods = { CONNECT: true, TRACE: true, TRACK: true };
+        _this._restrictedHeaders = {
+            'accept-charset': true,
+            'accept-encoding': true,
+            'access-control-request-headers': true,
+            'access-control-request-method': true,
+            connection: true,
+            'content-length': true,
+            cookie: true,
+            cookie2: true,
+            date: true,
+            dnt: true,
+            expect: true,
+            host: true,
+            'keep-alive': true,
+            origin: true,
+            referer: true,
+            te: true,
+            trailer: true,
+            'transfer-encoding': true,
+            upgrade: true,
+            'user-agent': true,
+            via: true
+        };
+        _this._privateHeaders = { 'set-cookie': true, 'set-cookie2': true };
+        _this._userAgent = "Mozilla/5.0 (" + os.type() + " " + os.arch() + ") node.js/" + process.versions.node + " v8/" + process.versions.v8;
+        _this._anonymous = options.anon || false;
+        return _this;
+    }
+    XMLHttpRequest.prototype.open = function (method, url, async, user, password) {
+        if (async === void 0) { async = true; }
+        method = method.toUpperCase();
+        if (this._restrictedMethods[method]) {
+            throw new XMLHttpRequest.SecurityError("HTTP method " + method + " is not allowed in XHR");
+        }
+        ;
+        var xhrUrl = this._parseUrl(url, user, password);
+        if (this.readyState === XMLHttpRequest.HEADERS_RECEIVED || this.readyState === XMLHttpRequest.LOADING) {
+            // TODO(pwnall): terminate abort(), terminate send()
+        }
+        this._method = method;
+        this._url = xhrUrl;
+        this._sync = !async;
+        this._headers = {};
+        this._loweredHeaders = {};
+        this._mimeOverride = null;
+        this._setReadyState(XMLHttpRequest.OPENED);
+        this._request = null;
+        this._response = null;
+        this.status = 0;
+        this.statusText = '';
+        this._responseParts = [];
+        this._responseHeaders = null;
+        this._loadedBytes = 0;
+        this._totalBytes = 0;
+        this._lengthComputable = false;
+    };
+    XMLHttpRequest.prototype.setRequestHeader = function (name, value) {
+        if (this.readyState !== XMLHttpRequest.OPENED) {
+            throw new XMLHttpRequest.InvalidStateError('XHR readyState must be OPENED');
+        }
+        var loweredName = name.toLowerCase();
+        if (this._restrictedHeaders[loweredName] || /^sec-/.test(loweredName) || /^proxy-/.test(loweredName)) {
+            console.warn("Refused to set unsafe header \"" + name + "\"");
+            return;
+        }
+        value = value.toString();
+        if (this._loweredHeaders[loweredName] != null) {
+            name = this._loweredHeaders[loweredName];
+            this._headers[name] = this._headers[name] + ", " + value;
+        }
+        else {
+            this._loweredHeaders[loweredName] = name;
+            this._headers[name] = value;
+        }
+    };
+    XMLHttpRequest.prototype.send = function (data) {
+        if (this.readyState !== XMLHttpRequest.OPENED) {
+            throw new XMLHttpRequest.InvalidStateError('XHR readyState must be OPENED');
+        }
+        if (this._request) {
+            throw new XMLHttpRequest.InvalidStateError('send() already called');
+        }
+        switch (this._url.protocol) {
+            case 'file:':
+                return this._sendFile(data);
+            case 'http:':
+            case 'https:':
+                return this._sendHttp(data);
+            default:
+                throw new XMLHttpRequest.NetworkError("Unsupported protocol " + this._url.protocol);
+        }
+    };
+    XMLHttpRequest.prototype.abort = function () {
+        if (this._request == null) {
+            return;
+        }
+        this._request.abort();
+        this._setError();
+        this._dispatchProgress('abort');
+        this._dispatchProgress('loadend');
+    };
+    XMLHttpRequest.prototype.getResponseHeader = function (name) {
+        if (this._responseHeaders == null || name == null) {
+            return null;
+        }
+        var loweredName = name.toLowerCase();
+        return this._responseHeaders.hasOwnProperty(loweredName)
+            ? this._responseHeaders[name.toLowerCase()]
+            : null;
+    };
+    XMLHttpRequest.prototype.getAllResponseHeaders = function () {
+        var _this = this;
+        if (this._responseHeaders == null) {
+            return '';
+        }
+        return Object.keys(this._responseHeaders).map(function (key) { return key + ": " + _this._responseHeaders[key]; }).join('\r\n');
+    };
+    XMLHttpRequest.prototype.overrideMimeType = function (mimeType) {
+        if (this.readyState === XMLHttpRequest.LOADING || this.readyState === XMLHttpRequest.DONE) {
+            throw new XMLHttpRequest.InvalidStateError('overrideMimeType() not allowed in LOADING or DONE');
+        }
+        this._mimeOverride = mimeType.toLowerCase();
+    };
+    XMLHttpRequest.prototype.nodejsSet = function (options) {
+        this.nodejsHttpAgent = options.httpAgent || this.nodejsHttpAgent;
+        this.nodejsHttpsAgent = options.httpsAgent || this.nodejsHttpsAgent;
+        if (options.hasOwnProperty('baseUrl')) {
+            if (options.baseUrl != null) {
+                var parsedUrl = url.parse(options.baseUrl, false, true);
+                if (!parsedUrl.protocol) {
+                    throw new XMLHttpRequest.SyntaxError("baseUrl must be an absolute URL");
+                }
+            }
+            this.nodejsBaseUrl = options.baseUrl;
+        }
+    };
+    XMLHttpRequest.nodejsSet = function (options) {
+        XMLHttpRequest.prototype.nodejsSet(options);
+    };
+    XMLHttpRequest.prototype._setReadyState = function (readyState) {
+        this.readyState = readyState;
+        this.dispatchEvent(new progress_event_1.ProgressEvent('readystatechange'));
+    };
+    XMLHttpRequest.prototype._sendFile = function (data) {
+        // TODO
+        throw new Error('Protocol file: not implemented');
+    };
+    XMLHttpRequest.prototype._sendHttp = function (data) {
+        if (this._sync) {
+            throw new Error('Synchronous XHR processing not implemented');
+        }
+        if (data && (this._method === 'GET' || this._method === 'HEAD')) {
+            console.warn("Discarding entity body for " + this._method + " requests");
+            data = null;
+        }
+        else {
+            data = data || '';
+        }
+        this.upload._setData(data);
+        this._finalizeHeaders();
+        this._sendHxxpRequest();
+    };
+    XMLHttpRequest.prototype._sendHxxpRequest = function () {
+        var _this = this;
+        if (this.withCredentials) {
+            var cookie = XMLHttpRequest.cookieJar
+                .getCookies(Cookie.CookieAccessInfo(this._url.hostname, this._url.pathname, this._url.protocol === 'https:')).toValueString();
+            this._headers.cookie = this._headers.cookie2 = cookie;
+        }
+        var _a = this._url.protocol === 'http:' ? [http, this.nodejsHttpAgent] : [https, this.nodejsHttpsAgent], hxxp = _a[0], agent = _a[1];
+        var requestMethod = hxxp.request.bind(hxxp);
+        var request = requestMethod({
+            hostname: this._url.hostname,
+            port: +this._url.port,
+            path: this._url.path,
+            auth: this._url.auth,
+            method: this._method,
+            headers: this._headers,
+            agent: agent
+        });
+        this._request = request;
+        if (this.timeout) {
+            request.setTimeout(this.timeout, function () { return _this._onHttpTimeout(request); });
+        }
+        request.on('response', function (response) { return _this._onHttpResponse(request, response); });
+        request.on('error', function (error) { return _this._onHttpRequestError(request, error); });
+        this.upload._startUpload(request);
+        if (this._request === request) {
+            this._dispatchProgress('loadstart');
+        }
+    };
+    XMLHttpRequest.prototype._finalizeHeaders = function () {
+        this._headers = __assign({}, this._headers, { Connection: 'keep-alive', Host: this._url.host, 'User-Agent': this._userAgent }, this._anonymous ? { Referer: 'about:blank' } : {});
+        this.upload._finalizeHeaders(this._headers, this._loweredHeaders);
+    };
+    XMLHttpRequest.prototype._onHttpResponse = function (request, response) {
+        var _this = this;
+        if (this._request !== request) {
+            return;
+        }
+        if (this.withCredentials && (response.headers['set-cookie'] || response.headers['set-cookie2'])) {
+            XMLHttpRequest.cookieJar
+                .setCookies(response.headers['set-cookie'] || response.headers['set-cookie2']);
+        }
+        if ([301, 302, 303, 307, 308].indexOf(response.statusCode) >= 0) {
+            this._url = this._parseUrl(response.headers.location);
+            this._method = 'GET';
+            if (this._loweredHeaders['content-type']) {
+                delete this._headers[this._loweredHeaders['content-type']];
+                delete this._loweredHeaders['content-type'];
+            }
+            if (this._headers['Content-Type'] != null) {
+                delete this._headers['Content-Type'];
+            }
+            delete this._headers['Content-Length'];
+            this.upload._reset();
+            this._finalizeHeaders();
+            this._sendHxxpRequest();
+            return;
+        }
+        this._response = response;
+        this._response.on('data', function (data) { return _this._onHttpResponseData(response, data); });
+        this._response.on('end', function () { return _this._onHttpResponseEnd(response); });
+        this._response.on('close', function () { return _this._onHttpResponseClose(response); });
+        this.responseUrl = this._url.href.split('#')[0];
+        this.status = response.statusCode;
+        this.statusText = http.STATUS_CODES[this.status];
+        this._parseResponseHeaders(response);
+        var lengthString = this._responseHeaders['content-length'] || '';
+        this._totalBytes = +lengthString;
+        this._lengthComputable = !!lengthString;
+        this._setReadyState(XMLHttpRequest.HEADERS_RECEIVED);
+    };
+    XMLHttpRequest.prototype._onHttpResponseData = function (response, data) {
+        if (this._response !== response) {
+            return;
+        }
+        this._responseParts.push(new Buffer(data));
+        this._loadedBytes += data.length;
+        if (this.readyState !== XMLHttpRequest.LOADING) {
+            this._setReadyState(XMLHttpRequest.LOADING);
+        }
+        this._dispatchProgress('progress');
+    };
+    XMLHttpRequest.prototype._onHttpResponseEnd = function (response) {
+        if (this._response !== response) {
+            return;
+        }
+        this._parseResponse();
+        this._request = null;
+        this._response = null;
+        this._setReadyState(XMLHttpRequest.DONE);
+        this._dispatchProgress('load');
+        this._dispatchProgress('loadend');
+    };
+    XMLHttpRequest.prototype._onHttpResponseClose = function (response) {
+        if (this._response !== response) {
+            return;
+        }
+        var request = this._request;
+        this._setError();
+        request.abort();
+        this._setReadyState(XMLHttpRequest.DONE);
+        this._dispatchProgress('error');
+        this._dispatchProgress('loadend');
+    };
+    XMLHttpRequest.prototype._onHttpTimeout = function (request) {
+        if (this._request !== request) {
+            return;
+        }
+        this._setError();
+        request.abort();
+        this._setReadyState(XMLHttpRequest.DONE);
+        this._dispatchProgress('timeout');
+        this._dispatchProgress('loadend');
+    };
+    XMLHttpRequest.prototype._onHttpRequestError = function (request, error) {
+        if (this._request !== request) {
+            return;
+        }
+        this._setError();
+        request.abort();
+        this._setReadyState(XMLHttpRequest.DONE);
+        this._dispatchProgress('error');
+        this._dispatchProgress('loadend');
+    };
+    XMLHttpRequest.prototype._dispatchProgress = function (eventType) {
+        var event = new XMLHttpRequest.ProgressEvent(eventType);
+        event.lengthComputable = this._lengthComputable;
+        event.loaded = this._loadedBytes;
+        event.total = this._totalBytes;
+        this.dispatchEvent(event);
+    };
+    XMLHttpRequest.prototype._setError = function () {
+        this._request = null;
+        this._response = null;
+        this._responseHeaders = null;
+        this._responseParts = null;
+    };
+    XMLHttpRequest.prototype._parseUrl = function (urlString, user, password) {
+        var absoluteUrl = this.nodejsBaseUrl == null ? urlString : url.resolve(this.nodejsBaseUrl, urlString);
+        var xhrUrl = url.parse(absoluteUrl, false, true);
+        xhrUrl.hash = null;
+        var _a = (xhrUrl.auth || '').split(':'), xhrUser = _a[0], xhrPassword = _a[1];
+        if (xhrUser || xhrPassword || user || password) {
+            xhrUrl.auth = (user || xhrUser || '') + ":" + (password || xhrPassword || '');
+        }
+        return xhrUrl;
+    };
+    XMLHttpRequest.prototype._parseResponseHeaders = function (response) {
+        this._responseHeaders = {};
+        for (var name_1 in response.headers) {
+            var loweredName = name_1.toLowerCase();
+            if (this._privateHeaders[loweredName]) {
+                continue;
+            }
+            this._responseHeaders[loweredName] = response.headers[name_1];
+        }
+        if (this._mimeOverride != null) {
+            this._responseHeaders['content-type'] = this._mimeOverride;
+        }
+    };
+    XMLHttpRequest.prototype._parseResponse = function () {
+        var buffer = Buffer.concat(this._responseParts);
+        this._responseParts = null;
+        switch (this.responseType) {
+            case 'json':
+                this.responseText = null;
+                try {
+                    this.response = JSON.parse(buffer.toString('utf-8'));
+                }
+                catch (_a) {
+                    this.response = null;
+                }
+                return;
+            case 'buffer':
+                this.responseText = null;
+                this.response = buffer;
+                return;
+            case 'arraybuffer':
+                this.responseText = null;
+                var arrayBuffer = new ArrayBuffer(buffer.length);
+                var view = new Uint8Array(arrayBuffer);
+                for (var i = 0; i < buffer.length; i++) {
+                    view[i] = buffer[i];
+                }
+                this.response = arrayBuffer;
+                return;
+            case 'text':
+            default:
+                try {
+                    this.responseText = buffer.toString(this._parseResponseEncoding());
+                }
+                catch (_b) {
+                    this.responseText = buffer.toString('binary');
+                }
+                this.response = this.responseText;
+        }
+    };
+    XMLHttpRequest.prototype._parseResponseEncoding = function () {
+        return /;\s*charset=(.*)$/.exec(this._responseHeaders['content-type'] || '')[1] || 'utf-8';
+    };
+    XMLHttpRequest.ProgressEvent = progress_event_1.ProgressEvent;
+    XMLHttpRequest.InvalidStateError = errors_1.InvalidStateError;
+    XMLHttpRequest.NetworkError = errors_1.NetworkError;
+    XMLHttpRequest.SecurityError = errors_1.SecurityError;
+    XMLHttpRequest.SyntaxError = errors_1.SyntaxError;
+    XMLHttpRequest.XMLHttpRequestUpload = xml_http_request_upload_1.XMLHttpRequestUpload;
+    XMLHttpRequest.UNSENT = 0;
+    XMLHttpRequest.OPENED = 1;
+    XMLHttpRequest.HEADERS_RECEIVED = 2;
+    XMLHttpRequest.LOADING = 3;
+    XMLHttpRequest.DONE = 4;
+    XMLHttpRequest.cookieJar = Cookie.CookieJar();
+    return XMLHttpRequest;
+}(xml_http_request_event_target_1.XMLHttpRequestEventTarget));
+exports.XMLHttpRequest = XMLHttpRequest;
+XMLHttpRequest.prototype.nodejsHttpAgent = http.globalAgent;
+XMLHttpRequest.prototype.nodejsHttpsAgent = https.globalAgent;
+XMLHttpRequest.prototype.nodejsBaseUrl = null;
+
+}).call(this,require('_process'),require("buffer").Buffer)
+},{"./errors":64,"./progress-event":66,"./xml-http-request-event-target":67,"./xml-http-request-upload":68,"_process":92,"buffer":81,"cookiejar":5,"http":112,"https":85,"os":90,"url":119}],70:[function(require,module,exports){
+(function (process,Buffer){
+/**
+ * Wrapper for built-in http.js to emulate the browser XMLHttpRequest object.
+ *
+ * This can be used with JS designed for browsers to improve reuse of code and
+ * allow the use of existing libraries.
+ *
+ * Usage: include("XMLHttpRequest.js") and use XMLHttpRequest per W3C specs.
+ *
+ * @author Dan DeFelippi <dan@driverdan.com>
+ * @contributor David Ellis <d.f.ellis@ieee.org>
+ * @license MIT
+ */
+
+var Url = require("url");
+var spawn = require("child_process").spawn;
+var fs = require("fs");
+
+exports.XMLHttpRequest = function() {
+  "use strict";
+
+  /**
+   * Private variables
+   */
+  var self = this;
+  var http = require("http");
+  var https = require("https");
+
+  // Holds http.js objects
+  var request;
+  var response;
+
+  // Request settings
+  var settings = {};
+
+  // Disable header blacklist.
+  // Not part of XHR specs.
+  var disableHeaderCheck = false;
+
+  // Set some default headers
+  var defaultHeaders = {
+    "User-Agent": "node-XMLHttpRequest",
+    "Accept": "*/*",
+  };
+
+  var headers = {};
+  var headersCase = {};
+
+  // These headers are not user setable.
+  // The following are allowed but banned in the spec:
+  // * user-agent
+  var forbiddenRequestHeaders = [
+    "accept-charset",
+    "accept-encoding",
+    "access-control-request-headers",
+    "access-control-request-method",
+    "connection",
+    "content-length",
+    "content-transfer-encoding",
+    "cookie",
+    "cookie2",
+    "date",
+    "expect",
+    "host",
+    "keep-alive",
+    "origin",
+    "referer",
+    "te",
+    "trailer",
+    "transfer-encoding",
+    "upgrade",
+    "via"
+  ];
+
+  // These request methods are not allowed
+  var forbiddenRequestMethods = [
+    "TRACE",
+    "TRACK",
+    "CONNECT"
+  ];
+
+  // Send flag
+  var sendFlag = false;
+  // Error flag, used when errors occur or abort is called
+  var errorFlag = false;
+
+  // Event listeners
+  var listeners = {};
+
+  /**
+   * Constants
+   */
+
+  this.UNSENT = 0;
+  this.OPENED = 1;
+  this.HEADERS_RECEIVED = 2;
+  this.LOADING = 3;
+  this.DONE = 4;
+
+  /**
+   * Public vars
+   */
+
+  // Current state
+  this.readyState = this.UNSENT;
+
+  // default ready state change handler in case one is not set or is set late
+  this.onreadystatechange = null;
+
+  // Result & response
+  this.responseText = "";
+  this.responseXML = "";
+  this.status = null;
+  this.statusText = null;
+  
+  // Whether cross-site Access-Control requests should be made using
+  // credentials such as cookies or authorization headers
+  this.withCredentials = false;
+
+  /**
+   * Private methods
+   */
+
+  /**
+   * Check if the specified header is allowed.
+   *
+   * @param string header Header to validate
+   * @return boolean False if not allowed, otherwise true
+   */
+  var isAllowedHttpHeader = function(header) {
+    return disableHeaderCheck || (header && forbiddenRequestHeaders.indexOf(header.toLowerCase()) === -1);
+  };
+
+  /**
+   * Check if the specified method is allowed.
+   *
+   * @param string method Request method to validate
+   * @return boolean False if not allowed, otherwise true
+   */
+  var isAllowedHttpMethod = function(method) {
+    return (method && forbiddenRequestMethods.indexOf(method) === -1);
+  };
+
+  /**
+   * Public methods
+   */
+
+  /**
+   * Open the connection. Currently supports local server requests.
+   *
+   * @param string method Connection method (eg GET, POST)
+   * @param string url URL for the connection.
+   * @param boolean async Asynchronous connection. Default is true.
+   * @param string user Username for basic authentication (optional)
+   * @param string password Password for basic authentication (optional)
+   */
+  this.open = function(method, url, async, user, password) {
+    this.abort();
+    errorFlag = false;
+
+    // Check for valid request method
+    if (!isAllowedHttpMethod(method)) {
+      throw new Error("SecurityError: Request method not allowed");
+    }
+
+    settings = {
+      "method": method,
+      "url": url.toString(),
+      "async": (typeof async !== "boolean" ? true : async),
+      "user": user || null,
+      "password": password || null
+    };
+
+    setState(this.OPENED);
+  };
+
+  /**
+   * Disables or enables isAllowedHttpHeader() check the request. Enabled by default.
+   * This does not conform to the W3C spec.
+   *
+   * @param boolean state Enable or disable header checking.
+   */
+  this.setDisableHeaderCheck = function(state) {
+    disableHeaderCheck = state;
+  };
+
+  /**
+   * Sets a header for the request or appends the value if one is already set.
+   *
+   * @param string header Header name
+   * @param string value Header value
+   */
+  this.setRequestHeader = function(header, value) {
+    if (this.readyState !== this.OPENED) {
+      throw new Error("INVALID_STATE_ERR: setRequestHeader can only be called when state is OPEN");
+    }
+    if (!isAllowedHttpHeader(header)) {
+      console.warn("Refused to set unsafe header \"" + header + "\"");
+      return;
+    }
+    if (sendFlag) {
+      throw new Error("INVALID_STATE_ERR: send flag is true");
+    }
+    header = headersCase[header.toLowerCase()] || header;
+    headersCase[header.toLowerCase()] = header;
+    headers[header] = headers[header] ? headers[header] + ', ' + value : value;
+  };
+
+  /**
+   * Gets a header from the server response.
+   *
+   * @param string header Name of header to get.
+   * @return string Text of the header or null if it doesn't exist.
+   */
+  this.getResponseHeader = function(header) {
+    if (typeof header === "string"
+      && this.readyState > this.OPENED
+      && response
+      && response.headers
+      && response.headers[header.toLowerCase()]
+      && !errorFlag
+    ) {
+      return response.headers[header.toLowerCase()];
+    }
+
+    return null;
+  };
+
+  /**
+   * Gets all the response headers.
+   *
+   * @return string A string with all response headers separated by CR+LF
+   */
+  this.getAllResponseHeaders = function() {
+    if (this.readyState < this.HEADERS_RECEIVED || errorFlag) {
+      return "";
+    }
+    var result = "";
+
+    for (var i in response.headers) {
+      // Cookie headers are excluded
+      if (i !== "set-cookie" && i !== "set-cookie2") {
+        result += i + ": " + response.headers[i] + "\r\n";
+      }
+    }
+    return result.substr(0, result.length - 2);
+  };
+
+  /**
+   * Gets a request header
+   *
+   * @param string name Name of header to get
+   * @return string Returns the request header or empty string if not set
+   */
+  this.getRequestHeader = function(name) {
+    if (typeof name === "string" && headersCase[name.toLowerCase()]) {
+      return headers[headersCase[name.toLowerCase()]];
+    }
+
+    return "";
+  };
+
+  /**
+   * Sends the request to the server.
+   *
+   * @param string data Optional data to send as request body.
+   */
+  this.send = function(data) {
+    if (this.readyState !== this.OPENED) {
+      throw new Error("INVALID_STATE_ERR: connection must be opened before send() is called");
+    }
+
+    if (sendFlag) {
+      throw new Error("INVALID_STATE_ERR: send has already been called");
+    }
+
+    var ssl = false, local = false;
+    var url = Url.parse(settings.url);
+    var host;
+    // Determine the server
+    switch (url.protocol) {
+      case "https:":
+        ssl = true;
+        // SSL & non-SSL both need host, no break here.
+      case "http:":
+        host = url.hostname;
+        break;
+
+      case "file:":
+        local = true;
+        break;
+
+      case undefined:
+      case null:
+      case "":
+        host = "localhost";
+        break;
+
+      default:
+        throw new Error("Protocol not supported.");
+    }
+
+    // Load files off the local filesystem (file://)
+    if (local) {
+      if (settings.method !== "GET") {
+        throw new Error("XMLHttpRequest: Only GET method is supported");
+      }
+
+      if (settings.async) {
+        fs.readFile(url.pathname, "utf8", function(error, data) {
+          if (error) {
+            self.handleError(error);
+          } else {
+            self.status = 200;
+            self.responseText = data;
+            setState(self.DONE);
+          }
+        });
+      } else {
+        try {
+          this.responseText = fs.readFileSync(url.pathname, "utf8");
+          this.status = 200;
+          setState(self.DONE);
+        } catch(e) {
+          this.handleError(e);
+        }
+      }
+
+      return;
+    }
+
+    // Default to port 80. If accessing localhost on another port be sure
+    // to use http://localhost:port/path
+    var port = url.port || (ssl ? 443 : 80);
+    // Add query string if one is used
+    var uri = url.pathname + (url.search ? url.search : "");
+
+    // Set the defaults if they haven't been set
+    for (var name in defaultHeaders) {
+      if (!headersCase[name.toLowerCase()]) {
+        headers[name] = defaultHeaders[name];
+      }
+    }
+
+    // Set the Host header or the server may reject the request
+    headers.Host = host;
+    if (!((ssl && port === 443) || port === 80)) {
+      headers.Host += ":" + url.port;
+    }
+
+    // Set Basic Auth if necessary
+    if (settings.user) {
+      if (typeof settings.password === "undefined") {
+        settings.password = "";
+      }
+      var authBuf = new Buffer(settings.user + ":" + settings.password);
+      headers.Authorization = "Basic " + authBuf.toString("base64");
+    }
+
+    // Set content length header
+    if (settings.method === "GET" || settings.method === "HEAD") {
+      data = null;
+    } else if (data) {
+      headers["Content-Length"] = Buffer.isBuffer(data) ? data.length : Buffer.byteLength(data);
+
+      if (!headers["Content-Type"]) {
+        headers["Content-Type"] = "text/plain;charset=UTF-8";
+      }
+    } else if (settings.method === "POST") {
+      // For a post with no data set Content-Length: 0.
+      // This is required by buggy servers that don't meet the specs.
+      headers["Content-Length"] = 0;
+    }
+
+    var options = {
+      host: host,
+      port: port,
+      path: uri,
+      method: settings.method,
+      headers: headers,
+      agent: false,
+      withCredentials: self.withCredentials
+    };
+
+    // Reset error flag
+    errorFlag = false;
+
+    // Handle async requests
+    if (settings.async) {
+      // Use the proper protocol
+      var doRequest = ssl ? https.request : http.request;
+
+      // Request is being sent, set send flag
+      sendFlag = true;
+
+      // As per spec, this is called here for historical reasons.
+      self.dispatchEvent("readystatechange");
+
+      // Handler for the response
+      var responseHandler = function responseHandler(resp) {
+        // Set response var to the response we got back
+        // This is so it remains accessable outside this scope
+        response = resp;
+        // Check for redirect
+        // @TODO Prevent looped redirects
+        if (response.statusCode === 301 || response.statusCode === 302 || response.statusCode === 303 || response.statusCode === 307) {
+          // Change URL to the redirect location
+          settings.url = response.headers.location;
+          var url = Url.parse(settings.url);
+          // Set host var in case it's used later
+          host = url.hostname;
+          // Options for the new request
+          var newOptions = {
+            hostname: url.hostname,
+            port: url.port,
+            path: url.path,
+            method: response.statusCode === 303 ? "GET" : settings.method,
+            headers: headers,
+            withCredentials: self.withCredentials
+          };
+
+          // Issue the new request
+          request = doRequest(newOptions, responseHandler).on("error", errorHandler);
+          request.end();
+          // @TODO Check if an XHR event needs to be fired here
+          return;
+        }
+
+        response.setEncoding("utf8");
+
+        setState(self.HEADERS_RECEIVED);
+        self.status = response.statusCode;
+
+        response.on("data", function(chunk) {
+          // Make sure there's some data
+          if (chunk) {
+            self.responseText += chunk;
+          }
+          // Don't emit state changes if the connection has been aborted.
+          if (sendFlag) {
+            setState(self.LOADING);
+          }
+        });
+
+        response.on("end", function() {
+          if (sendFlag) {
+            // Discard the end event if the connection has been aborted
+            setState(self.DONE);
+            sendFlag = false;
+          }
+        });
+
+        response.on("error", function(error) {
+          self.handleError(error);
+        });
+      };
+
+      // Error handler for the request
+      var errorHandler = function errorHandler(error) {
+        self.handleError(error);
+      };
+
+      // Create the request
+      request = doRequest(options, responseHandler).on("error", errorHandler);
+
+      // Node 0.4 and later won't accept empty data. Make sure it's needed.
+      if (data) {
+        request.write(data);
+      }
+
+      request.end();
+
+      self.dispatchEvent("loadstart");
+    } else { // Synchronous
+      // Create a temporary file for communication with the other Node process
+      var contentFile = ".node-xmlhttprequest-content-" + process.pid;
+      var syncFile = ".node-xmlhttprequest-sync-" + process.pid;
+      fs.writeFileSync(syncFile, "", "utf8");
+      // The async request the other Node process executes
+      var execString = "var http = require('http'), https = require('https'), fs = require('fs');"
+        + "var doRequest = http" + (ssl ? "s" : "") + ".request;"
+        + "var options = " + JSON.stringify(options) + ";"
+        + "var responseText = '';"
+        + "var req = doRequest(options, function(response) {"
+        + "response.setEncoding('utf8');"
+        + "response.on('data', function(chunk) {"
+        + "  responseText += chunk;"
+        + "});"
+        + "response.on('end', function() {"
+        + "fs.writeFileSync('" + contentFile + "', JSON.stringify({err: null, data: {statusCode: response.statusCode, headers: response.headers, text: responseText}}), 'utf8');"
+        + "fs.unlinkSync('" + syncFile + "');"
+        + "});"
+        + "response.on('error', function(error) {"
+        + "fs.writeFileSync('" + contentFile + "', JSON.stringify({err: error}), 'utf8');"
+        + "fs.unlinkSync('" + syncFile + "');"
+        + "});"
+        + "}).on('error', function(error) {"
+        + "fs.writeFileSync('" + contentFile + "', JSON.stringify({err: error}), 'utf8');"
+        + "fs.unlinkSync('" + syncFile + "');"
+        + "});"
+        + (data ? "req.write('" + JSON.stringify(data).slice(1,-1).replace(/'/g, "\\'") + "');":"")
+        + "req.end();";
+      // Start the other Node Process, executing this string
+      var syncProc = spawn(process.argv[0], ["-e", execString]);
+      while(fs.existsSync(syncFile)) {
+        // Wait while the sync file is empty
+      }
+      var resp = JSON.parse(fs.readFileSync(contentFile, 'utf8'));
+      // Kill the child process once the file has data
+      syncProc.stdin.end();
+      // Remove the temporary file
+      fs.unlinkSync(contentFile);
+
+      if (resp.err) {
+        self.handleError(resp.err);
+      } else {
+        response = resp.data;
+        self.status = resp.data.statusCode;
+        self.responseText = resp.data.text;
+        setState(self.DONE);
+      }
+    }
+  };
+
+  /**
+   * Called when an error is encountered to deal with it.
+   */
+  this.handleError = function(error) {
+    this.status = 0;
+    this.statusText = error;
+    this.responseText = error.stack;
+    errorFlag = true;
+    setState(this.DONE);
+    this.dispatchEvent('error');
+  };
+
+  /**
+   * Aborts a request.
+   */
+  this.abort = function() {
+    if (request) {
+      request.abort();
+      request = null;
+    }
+
+    headers = defaultHeaders;
+    this.status = 0;
+    this.responseText = "";
+    this.responseXML = "";
+
+    errorFlag = true;
+
+    if (this.readyState !== this.UNSENT
+        && (this.readyState !== this.OPENED || sendFlag)
+        && this.readyState !== this.DONE) {
+      sendFlag = false;
+      setState(this.DONE);
+    }
+    this.readyState = this.UNSENT;
+    this.dispatchEvent('abort');
+  };
+
+  /**
+   * Adds an event listener. Preferred method of binding to events.
+   */
+  this.addEventListener = function(event, callback) {
+    if (!(event in listeners)) {
+      listeners[event] = [];
+    }
+    // Currently allows duplicate callbacks. Should it?
+    listeners[event].push(callback);
+  };
+
+  /**
+   * Remove an event callback that has already been bound.
+   * Only works on the matching funciton, cannot be a copy.
+   */
+  this.removeEventListener = function(event, callback) {
+    if (event in listeners) {
+      // Filter will return a new array with the callback removed
+      listeners[event] = listeners[event].filter(function(ev) {
+        return ev !== callback;
+      });
+    }
+  };
+
+  /**
+   * Dispatch any events, including both "on" methods and events attached using addEventListener.
+   */
+  this.dispatchEvent = function(event) {
+    if (typeof self["on" + event] === "function") {
+      self["on" + event]();
+    }
+    if (event in listeners) {
+      for (var i = 0, len = listeners[event].length; i < len; i++) {
+        listeners[event][i].call(self);
+      }
+    }
+  };
+
+  /**
+   * Changes readyState and calls onreadystatechange.
+   *
+   * @param int state New state
+   */
+  var setState = function(state) {
+    if (state == self.LOADING || self.readyState !== state) {
+      self.readyState = state;
+
+      if (settings.async || self.readyState < self.OPENED || self.readyState === self.DONE) {
+        self.dispatchEvent("readystatechange");
+      }
+
+      if (self.readyState === self.DONE && !errorFlag) {
+        self.dispatchEvent("load");
+        // @TODO figure out InspectorInstrumentation::didLoadXHR(cookie)
+        self.dispatchEvent("loadend");
+      }
+    }
+  };
+};
+
+}).call(this,require('_process'),require("buffer").Buffer)
+},{"_process":92,"buffer":81,"child_process":74,"fs":74,"http":112,"https":85,"url":119}],71:[function(require,module,exports){
 
 var commands = module.exports.commands = {
   "seele" : [
@@ -11943,7 +13490,7 @@ module.exports.getNamespace = function(command) {
   }
 }
 
-},{}],64:[function(require,module,exports){
+},{}],72:[function(require,module,exports){
 class fileter {
     constructor(seele) {
         this.seele = seele;
@@ -11964,36 +13511,63 @@ class fileter {
      */
     blocktx(height, address, flag, fn) {
         var self = this.seele
-        self.send("getBlock", "", height, false, function (block) {
-            if (block instanceof Error) {
-                console.log(block);
-                return;
-            }
+        var block = self.sendSync("getBlock", "", height, false)
 
-            block.transactions.forEach(txHash => {
-                self.getTransactionByHash(txHash, function (tx) {
-                    if (tx instanceof Error) {
-                        console.log(tx);
-                        return;
-                    }
+        block.transactions.forEach(txHash => {
+            self.getTransactionByHash(txHash, function (err, tx) {
+                if (err) {
+                    console.log(err);
+                    return;
+                }
 
-                    if (flag === "1" && tx.transaction.from === address) {
-                        fn(tx);
-                    }
+                if (flag === "1" && tx.transaction.from === address) {
+                    fn(tx);
+                }
 
-                    if (flag === "2" && tx.transaction.to === address) {
-                        fn(tx);
-                    }
-                });
+                if (flag === "2" && tx.transaction.to === address) {
+                    fn(tx);
+                }
             });
         });
+    }
+
+    /**
+     * Filtering transactions for a specific address based on block height, an error occurs if the
+     * block height does not exist. If the height is -1, it will filter the current block.
+     * When the flag is 1, the transaction `from` equal to the `address` is filtered in the block.
+     * When the flag is 2, the transaction `to` equal to the `address` is filtered in the block.
+     * @example
+     * var txs = client.filterBlockTx(-1, "0x4c10f2cd2159bb432094e3be7e17904c2b4aeb21", "1")
+     * var txs = client.filterBlockTx(1235435, "0x4c10f2cd2159bb432094e3be7e17904c2b4aeb21", "2")
+     * @param {Number} height 
+     * @param {String} address 
+     * @param {Number} flag 1:from 2:to
+     * @returns {Array} txs
+     */
+    blocktxSync(height, address, flag) {
+        var self = this.seele
+        var block = self.sendSync("getBlock", "", height, false)
+        var result = new Array()
+
+        block.transactions.forEach(txHash => {
+            var tx = self.sendSync("getTransactionByHash", txHash);
+            if (flag === "1" && tx.transaction.from === address) {
+                result.push(tx);
+            }
+
+            if (flag === "2" && tx.transaction.to === address) {
+                result.push(tx);
+            }
+        });
+
+        return result
     }
 }
 
 module.exports = fileter
 
 
-},{}],65:[function(require,module,exports){
+},{}],73:[function(require,module,exports){
 (function (Buffer){
 const createKeccakHash = require('keccak')
 const secp256k1 = require('secp256k1')
@@ -12064,7 +13638,9 @@ class Transaction {
 
 module.exports = Transaction
 }).call(this,require("buffer").Buffer)
-},{"buffer":72,"keccak":37,"rlp":47,"secp256k1":49}],66:[function(require,module,exports){
+},{"buffer":81,"keccak":38,"rlp":48,"secp256k1":50}],74:[function(require,module,exports){
+
+},{}],75:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -12558,16 +14134,16 @@ var objectKeys = Object.keys || function (obj) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"util/":69}],67:[function(require,module,exports){
-arguments[4][36][0].apply(exports,arguments)
-},{"dup":36}],68:[function(require,module,exports){
+},{"util/":78}],76:[function(require,module,exports){
+arguments[4][37][0].apply(exports,arguments)
+},{"dup":37}],77:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],69:[function(require,module,exports){
+},{}],78:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -13157,7 +14733,7 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":68,"_process":81,"inherits":67}],70:[function(require,module,exports){
+},{"./support/isBuffer":77,"_process":92,"inherits":76}],79:[function(require,module,exports){
 'use strict'
 
 exports.byteLength = byteLength
@@ -13310,9 +14886,9 @@ function fromByteArray (uint8) {
   return parts.join('')
 }
 
-},{}],71:[function(require,module,exports){
-
-},{}],72:[function(require,module,exports){
+},{}],80:[function(require,module,exports){
+arguments[4][74][0].apply(exports,arguments)
+},{"dup":74}],81:[function(require,module,exports){
 /*!
  * The buffer module from node.js, for the browser.
  *
@@ -15091,7 +16667,7 @@ function numberIsNaN (obj) {
   return obj !== obj // eslint-disable-line no-self-compare
 }
 
-},{"base64-js":70,"ieee754":76}],73:[function(require,module,exports){
+},{"base64-js":79,"ieee754":86}],82:[function(require,module,exports){
 module.exports = {
   "100": "Continue",
   "101": "Switching Protocols",
@@ -15157,7 +16733,7 @@ module.exports = {
   "511": "Network Authentication Required"
 }
 
-},{}],74:[function(require,module,exports){
+},{}],83:[function(require,module,exports){
 (function (Buffer){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -15268,7 +16844,7 @@ function objectToString(o) {
 }
 
 }).call(this,{"isBuffer":require("../../is-buffer/index.js")})
-},{"../../is-buffer/index.js":78}],75:[function(require,module,exports){
+},{"../../is-buffer/index.js":88}],84:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -15793,7 +17369,40 @@ function functionBindPolyfill(context) {
   };
 }
 
-},{}],76:[function(require,module,exports){
+},{}],85:[function(require,module,exports){
+var http = require('http')
+var url = require('url')
+
+var https = module.exports
+
+for (var key in http) {
+  if (http.hasOwnProperty(key)) https[key] = http[key]
+}
+
+https.request = function (params, cb) {
+  params = validateParams(params)
+  return http.request.call(this, params, cb)
+}
+
+https.get = function (params, cb) {
+  params = validateParams(params)
+  return http.get.call(this, params, cb)
+}
+
+function validateParams (params) {
+  if (typeof params === 'string') {
+    params = url.parse(params)
+  }
+  if (!params.protocol) {
+    params.protocol = 'https:'
+  }
+  if (params.protocol !== 'https:') {
+    throw new Error('Protocol "' + params.protocol + '" not supported. Expected "https:"')
+  }
+  return params
+}
+
+},{"http":112,"url":119}],86:[function(require,module,exports){
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   var e, m
   var eLen = (nBytes * 8) - mLen - 1
@@ -15879,9 +17488,9 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128
 }
 
-},{}],77:[function(require,module,exports){
-arguments[4][36][0].apply(exports,arguments)
-},{"dup":36}],78:[function(require,module,exports){
+},{}],87:[function(require,module,exports){
+arguments[4][37][0].apply(exports,arguments)
+},{"dup":37}],88:[function(require,module,exports){
 /*!
  * Determine if an object is a Buffer
  *
@@ -15904,14 +17513,65 @@ function isSlowBuffer (obj) {
   return typeof obj.readFloatLE === 'function' && typeof obj.slice === 'function' && isBuffer(obj.slice(0, 0))
 }
 
-},{}],79:[function(require,module,exports){
+},{}],89:[function(require,module,exports){
 var toString = {}.toString;
 
 module.exports = Array.isArray || function (arr) {
   return toString.call(arr) == '[object Array]';
 };
 
-},{}],80:[function(require,module,exports){
+},{}],90:[function(require,module,exports){
+exports.endianness = function () { return 'LE' };
+
+exports.hostname = function () {
+    if (typeof location !== 'undefined') {
+        return location.hostname
+    }
+    else return '';
+};
+
+exports.loadavg = function () { return [] };
+
+exports.uptime = function () { return 0 };
+
+exports.freemem = function () {
+    return Number.MAX_VALUE;
+};
+
+exports.totalmem = function () {
+    return Number.MAX_VALUE;
+};
+
+exports.cpus = function () { return [] };
+
+exports.type = function () { return 'Browser' };
+
+exports.release = function () {
+    if (typeof navigator !== 'undefined') {
+        return navigator.appVersion;
+    }
+    return '';
+};
+
+exports.networkInterfaces
+= exports.getNetworkInterfaces
+= function () { return {} };
+
+exports.arch = function () { return 'javascript' };
+
+exports.platform = function () { return 'browser' };
+
+exports.tmpdir = exports.tmpDir = function () {
+    return '/tmp';
+};
+
+exports.EOL = '\n';
+
+exports.homedir = function () {
+	return '/'
+};
+
+},{}],91:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -15959,7 +17619,7 @@ function nextTick(fn, arg1, arg2, arg3) {
 
 
 }).call(this,require('_process'))
-},{"_process":81}],81:[function(require,module,exports){
+},{"_process":92}],92:[function(require,module,exports){
 // shim for using process in browser
 var process = module.exports = {};
 
@@ -16145,7 +17805,7 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],82:[function(require,module,exports){
+},{}],93:[function(require,module,exports){
 (function (global){
 /*! https://mths.be/punycode v1.4.1 by @mathias */
 ;(function(root) {
@@ -16682,7 +18342,7 @@ process.umask = function() { return 0; };
 }(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],83:[function(require,module,exports){
+},{}],94:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -16768,7 +18428,7 @@ var isArray = Array.isArray || function (xs) {
   return Object.prototype.toString.call(xs) === '[object Array]';
 };
 
-},{}],84:[function(require,module,exports){
+},{}],95:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -16855,16 +18515,16 @@ var objectKeys = Object.keys || function (obj) {
   return res;
 };
 
-},{}],85:[function(require,module,exports){
+},{}],96:[function(require,module,exports){
 'use strict';
 
 exports.decode = exports.parse = require('./decode');
 exports.encode = exports.stringify = require('./encode');
 
-},{"./decode":83,"./encode":84}],86:[function(require,module,exports){
+},{"./decode":94,"./encode":95}],97:[function(require,module,exports){
 module.exports = require('./lib/_stream_duplex.js');
 
-},{"./lib/_stream_duplex.js":87}],87:[function(require,module,exports){
+},{"./lib/_stream_duplex.js":98}],98:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -16996,7 +18656,7 @@ Duplex.prototype._destroy = function (err, cb) {
 
   pna.nextTick(cb, err);
 };
-},{"./_stream_readable":89,"./_stream_writable":91,"core-util-is":74,"inherits":77,"process-nextick-args":80}],88:[function(require,module,exports){
+},{"./_stream_readable":100,"./_stream_writable":102,"core-util-is":83,"inherits":87,"process-nextick-args":91}],99:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -17044,7 +18704,7 @@ function PassThrough(options) {
 PassThrough.prototype._transform = function (chunk, encoding, cb) {
   cb(null, chunk);
 };
-},{"./_stream_transform":90,"core-util-is":74,"inherits":77}],89:[function(require,module,exports){
+},{"./_stream_transform":101,"core-util-is":83,"inherits":87}],100:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -18066,7 +19726,7 @@ function indexOf(xs, x) {
   return -1;
 }
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./_stream_duplex":87,"./internal/streams/BufferList":92,"./internal/streams/destroy":93,"./internal/streams/stream":94,"_process":81,"core-util-is":74,"events":75,"inherits":77,"isarray":79,"process-nextick-args":80,"safe-buffer":99,"string_decoder/":105,"util":71}],90:[function(require,module,exports){
+},{"./_stream_duplex":98,"./internal/streams/BufferList":103,"./internal/streams/destroy":104,"./internal/streams/stream":105,"_process":92,"core-util-is":83,"events":84,"inherits":87,"isarray":89,"process-nextick-args":91,"safe-buffer":110,"string_decoder/":116,"util":80}],101:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -18281,7 +19941,7 @@ function done(stream, er, data) {
 
   return stream.push(null);
 }
-},{"./_stream_duplex":87,"core-util-is":74,"inherits":77}],91:[function(require,module,exports){
+},{"./_stream_duplex":98,"core-util-is":83,"inherits":87}],102:[function(require,module,exports){
 (function (process,global,setImmediate){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -18971,7 +20631,7 @@ Writable.prototype._destroy = function (err, cb) {
   cb(err);
 };
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("timers").setImmediate)
-},{"./_stream_duplex":87,"./internal/streams/destroy":93,"./internal/streams/stream":94,"_process":81,"core-util-is":74,"inherits":77,"process-nextick-args":80,"safe-buffer":99,"timers":106,"util-deprecate":110}],92:[function(require,module,exports){
+},{"./_stream_duplex":98,"./internal/streams/destroy":104,"./internal/streams/stream":105,"_process":92,"core-util-is":83,"inherits":87,"process-nextick-args":91,"safe-buffer":110,"timers":117,"util-deprecate":121}],103:[function(require,module,exports){
 'use strict';
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
@@ -19051,7 +20711,7 @@ if (util && util.inspect && util.inspect.custom) {
     return this.constructor.name + ' ' + obj;
   };
 }
-},{"safe-buffer":99,"util":71}],93:[function(require,module,exports){
+},{"safe-buffer":110,"util":80}],104:[function(require,module,exports){
 'use strict';
 
 /*<replacement>*/
@@ -19126,13 +20786,13 @@ module.exports = {
   destroy: destroy,
   undestroy: undestroy
 };
-},{"process-nextick-args":80}],94:[function(require,module,exports){
+},{"process-nextick-args":91}],105:[function(require,module,exports){
 module.exports = require('events').EventEmitter;
 
-},{"events":75}],95:[function(require,module,exports){
+},{"events":84}],106:[function(require,module,exports){
 module.exports = require('./readable').PassThrough
 
-},{"./readable":96}],96:[function(require,module,exports){
+},{"./readable":107}],107:[function(require,module,exports){
 exports = module.exports = require('./lib/_stream_readable.js');
 exports.Stream = exports;
 exports.Readable = exports;
@@ -19141,15 +20801,15 @@ exports.Duplex = require('./lib/_stream_duplex.js');
 exports.Transform = require('./lib/_stream_transform.js');
 exports.PassThrough = require('./lib/_stream_passthrough.js');
 
-},{"./lib/_stream_duplex.js":87,"./lib/_stream_passthrough.js":88,"./lib/_stream_readable.js":89,"./lib/_stream_transform.js":90,"./lib/_stream_writable.js":91}],97:[function(require,module,exports){
+},{"./lib/_stream_duplex.js":98,"./lib/_stream_passthrough.js":99,"./lib/_stream_readable.js":100,"./lib/_stream_transform.js":101,"./lib/_stream_writable.js":102}],108:[function(require,module,exports){
 module.exports = require('./readable').Transform
 
-},{"./readable":96}],98:[function(require,module,exports){
+},{"./readable":107}],109:[function(require,module,exports){
 module.exports = require('./lib/_stream_writable.js');
 
-},{"./lib/_stream_writable.js":91}],99:[function(require,module,exports){
-arguments[4][48][0].apply(exports,arguments)
-},{"buffer":72,"dup":48}],100:[function(require,module,exports){
+},{"./lib/_stream_writable.js":102}],110:[function(require,module,exports){
+arguments[4][49][0].apply(exports,arguments)
+},{"buffer":81,"dup":49}],111:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -19278,7 +20938,7 @@ Stream.prototype.pipe = function(dest, options) {
   return dest;
 };
 
-},{"events":75,"inherits":77,"readable-stream/duplex.js":86,"readable-stream/passthrough.js":95,"readable-stream/readable.js":96,"readable-stream/transform.js":97,"readable-stream/writable.js":98}],101:[function(require,module,exports){
+},{"events":84,"inherits":87,"readable-stream/duplex.js":97,"readable-stream/passthrough.js":106,"readable-stream/readable.js":107,"readable-stream/transform.js":108,"readable-stream/writable.js":109}],112:[function(require,module,exports){
 (function (global){
 var ClientRequest = require('./lib/request')
 var response = require('./lib/response')
@@ -19366,7 +21026,7 @@ http.METHODS = [
 	'UNSUBSCRIBE'
 ]
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./lib/request":103,"./lib/response":104,"builtin-status-codes":73,"url":108,"xtend":111}],102:[function(require,module,exports){
+},{"./lib/request":114,"./lib/response":115,"builtin-status-codes":82,"url":119,"xtend":122}],113:[function(require,module,exports){
 (function (global){
 exports.fetch = isFunction(global.fetch) && isFunction(global.ReadableStream)
 
@@ -19443,7 +21103,7 @@ function isFunction (value) {
 xhr = null // Help gc
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],103:[function(require,module,exports){
+},{}],114:[function(require,module,exports){
 (function (process,global,Buffer){
 var capability = require('./capability')
 var inherits = require('inherits')
@@ -19774,7 +21434,7 @@ var unsafeHeaders = [
 ]
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer)
-},{"./capability":102,"./response":104,"_process":81,"buffer":72,"inherits":77,"readable-stream":96,"to-arraybuffer":107}],104:[function(require,module,exports){
+},{"./capability":113,"./response":115,"_process":92,"buffer":81,"inherits":87,"readable-stream":107,"to-arraybuffer":118}],115:[function(require,module,exports){
 (function (process,global,Buffer){
 var capability = require('./capability')
 var inherits = require('inherits')
@@ -20002,7 +21662,7 @@ IncomingMessage.prototype._onXHRProgress = function () {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer)
-},{"./capability":102,"_process":81,"buffer":72,"inherits":77,"readable-stream":96}],105:[function(require,module,exports){
+},{"./capability":113,"_process":92,"buffer":81,"inherits":87,"readable-stream":107}],116:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -20299,7 +21959,7 @@ function simpleWrite(buf) {
 function simpleEnd(buf) {
   return buf && buf.length ? this.write(buf) : '';
 }
-},{"safe-buffer":99}],106:[function(require,module,exports){
+},{"safe-buffer":110}],117:[function(require,module,exports){
 (function (setImmediate,clearImmediate){
 var nextTick = require('process/browser.js').nextTick;
 var apply = Function.prototype.apply;
@@ -20378,7 +22038,7 @@ exports.clearImmediate = typeof clearImmediate === "function" ? clearImmediate :
   delete immediateIds[id];
 };
 }).call(this,require("timers").setImmediate,require("timers").clearImmediate)
-},{"process/browser.js":81,"timers":106}],107:[function(require,module,exports){
+},{"process/browser.js":92,"timers":117}],118:[function(require,module,exports){
 var Buffer = require('buffer').Buffer
 
 module.exports = function (buf) {
@@ -20407,7 +22067,7 @@ module.exports = function (buf) {
 	}
 }
 
-},{"buffer":72}],108:[function(require,module,exports){
+},{"buffer":81}],119:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -21141,7 +22801,7 @@ Url.prototype.parseHost = function() {
   if (host) this.hostname = host;
 };
 
-},{"./util":109,"punycode":82,"querystring":85}],109:[function(require,module,exports){
+},{"./util":120,"punycode":93,"querystring":96}],120:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -21159,7 +22819,7 @@ module.exports = {
   }
 };
 
-},{}],110:[function(require,module,exports){
+},{}],121:[function(require,module,exports){
 (function (global){
 
 /**
@@ -21230,7 +22890,7 @@ function config (name) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],111:[function(require,module,exports){
+},{}],122:[function(require,module,exports){
 module.exports = extend
 
 var hasOwnProperty = Object.prototype.hasOwnProperty;
@@ -21252,11 +22912,21 @@ function extend() {
 }
 
 },{}],"seele.js":[function(require,module,exports){
-(function (Buffer){
+(function (global,Buffer){
 var api  = require('./commands')
  ,  http = require('http')
  ,  transaction   = require('./tx')
  ,  filter   = require('./filter')
+
+ // browser
+if (typeof window !== 'undefined' && window.XMLHttpRequest) {
+  XMLHttpRequest = window.XMLHttpRequest; // jshint ignore: line
+// node
+} else {
+  XMLHttpRequest = require('xmlhttprequest').XMLHttpRequest; // jshint ignore: line
+}
+
+var XHR2 = require('xhr2-cookies').XMLHttpRequest; // jshint ignore: line
 
 /**
 * SeeleWebProvider should be used to send rpc calls over http
@@ -21268,9 +22938,8 @@ var api  = require('./commands')
 * @param {Number} timeout A number specifying the socket timeout in milliseconds. This will set the timeout before the socket is connected. Default: '30000'.
 */
 class SeeleWebProvider {
-  constructor(host, port, headers, user, password, timeout) {
-    this.host = host || 'localhost';
-    this.port = port || '8037';
+  constructor(host, headers, user, password, timeout) {
+    this.host = host || 'http://localhost:8037';
     this.headers = headers;
     this.user = user;
     this.password = password;
@@ -21280,48 +22949,32 @@ class SeeleWebProvider {
   /**
   * Should be called to prepare a new ClientRequest
   * @method prepareRequest
-  * @param {Object} fn the function to process result or error
+  * @param {Boolean} true if request should be async
   * @return {ClientRequest} object
   */
-  prepareRequest(fn) {
-    var options = {
-      host: this.host,
-      port: this.port,
-      method: "POST",
-      timeout: this.timeout
-    };
+  prepareRequest(async) {
+    var request;
 
-    var request = http.request(options, function (response) {
-      var data = '';
-      response.setEncoding('utf8');
-      response.on('data', function (chunk) {
-        data += chunk;
-      });
-      response.on('end', function () {
-        try {
-          data = JSON.parse(data);
-          if (data.error) {
-            return fn(new Error(JSON.stringify(data)));
-          }
-          fn(data.result);
-        } catch (exception) {
-            var errMsg = exception + ' : ' + JSON.stringify(data);
-            return fn(new Error(errMsg));
-        }
-      });
-    });
+    if (async) {
+      request = new XHR2();
+      request.timeout = this.timeout;
+    } else {
+      request = new XMLHttpRequest();
+    }
+    request.withCredentials = true;
+    request.open('POST', this.host, async);
 
     // user and password
     if (this.user && this.password) {
       var auth = 'Basic ' + new Buffer(this.user + ':' + this.password).toString('base64');
-      request.setHeader('Authorization', auth);
+      request.setRequestHeader('Authorization', auth);
     }
 
     // headers
-    request.setHeader('Content-Type', 'application/json');
+    request.setRequestHeader('Content-Type', 'application/json');
     if (this.headers) {
       this.headers.forEach(function (header) {
-        request.setHeader(header.name, header.value);
+        request.setRequestHeader(header.name, header.value);
       });
     }
     return request;
@@ -21331,7 +22984,7 @@ class SeeleWebProvider {
   * Should be called to make async request
   * @method send
   * @param {String} command
-  * @return {Object} result
+  * @return {Object} request
   * @todo Using namespace
   */
   send(command) {
@@ -21340,40 +22993,76 @@ class SeeleWebProvider {
       fn = args.pop().bind(this);
     }
 
-    var request = this.prepareRequest(fn)
+    var request = this.prepareRequest(true)
     var rpcData = JSON.stringify({
       id: new Date().getTime(),
       method: api.getNamespace(command).concat("_").concat(command),
       params: args
     });
 
-    request.on('error', fn);
-    request.end(rpcData);
-    return this;
+    request.onreadystatechange = function () {
+      if (request.readyState === 4 && request.timeout !== 1) {
+        var result = request.responseText
+        try {
+          result = JSON.parse(result);
+          if (result.error) {
+            fn(new Error(JSON.stringify(result)));
+          }
+
+          fn(null, result.result);
+        } catch (exception) {
+          fn(new Error(exception + ' : ' + JSON.stringify(result)));
+        }
+      }
+    };
+  
+    request.ontimeout = function () {
+      fn(new Error('CONNECTION TIMEOUT: timeout of ' + this.timeout + ' ms achieved'));
+    };
+  
+    try {
+      request.send(rpcData);
+    } catch (error) {
+      fn(new Error('CONNECTION ERROR: Couldn\'t connect to node '+ this.host +'.'));
+    }
+    return request;
   }
 
   /**
   * Should be called to make sync request
   * @method send
   * @param {String} command
-  * @return {Promise} result
+  * @return {Object} result
   * @todo Using namespace
   */
   sendSync(command) {
-    var self = this, args = Array.prototype.slice.call(arguments, 1)
-    return new Promise(function(resolve){
-      var request = self.prepareRequest(resolve);
-      var rpcData = JSON.stringify({
-        id: new Date().getTime(),
-        method: api.getNamespace(command).concat("_").concat(command),
-        params: args
-      });
+    var args    = Array.prototype.slice.call(arguments, 1)
+    
+    var request = this.prepareRequest(false)
+    var rpcData = JSON.stringify({
+      id: new Date().getTime(),
+      method: api.getNamespace(command).concat("_").concat(command),
+      params: args
+    });
 
-      request.on('error', (e) =>{
-        resolve(e)
-      });
-      request.end(rpcData);
-    })
+    try {
+      request.send(rpcData);
+    } catch (error) {
+      throw new Error('CONNECTION ERROR: Couldn\'t connect to node '+ this.host +'.');
+    }
+  
+    var result = request.responseText;
+  
+    try {
+      result = JSON.parse(result);
+      if (result.error) {
+        throw new Error(JSON.stringify(result));
+      }
+      
+      return result.result
+    } catch (exception) {
+      throw new Error(exception + ' : ' + JSON.stringify(result));
+    }
   }
 
   /**
@@ -21381,7 +23070,6 @@ class SeeleWebProvider {
    * @param {string} command 
    */
   invalid(command) {
-    var args = Array.prototype.slice.call(arguments, 1);
     return console.log(new Error('No such command "' + command + '"'));
   }
 
@@ -21444,19 +23132,24 @@ class SeeleWebProvider {
    * When the flag is 1, the transaction `from` equal to the `address` is filtered in the block.
    * When the flag is 2, the transaction `to` equal to the `address` is filtered in the block.
    * @example
-   * client.filterBlockTx(-1, "0x4c10f2cd2159bb432094e3be7e17904c2b4aeb21", "1")
-   * client.filterBlockTx(1235435, "0x4c10f2cd2159bb432094e3be7e17904c2b4aeb21", "2")
+   * var txs = client.filterBlockTx(-1, "0x4c10f2cd2159bb432094e3be7e17904c2b4aeb21", "1")
+   * 
+   * client.filterBlockTx(1235435, "0x4c10f2cd2159bb432094e3be7e17904c2b4aeb21", "2", function(txs){
+   *     console.log(txs)
+   * })
    * @param {Number} height 
    * @param {String} address 
    * @param {Number} flag 1:from 2:to
    */
   filterBlockTx(height, address, flag) {
-    var args = Array.prototype.slice.call(arguments, 1), fn = console.log;
+    var args = Array.prototype.slice.call(arguments, 1)
     if (typeof args[args.length - 1] === 'function') {
-      fn = args.pop().bind(this);
+      var fn = args.pop().bind(this);
+      new filter(this).blocktx(height, address, flag, fn)
+      return
     }
-
-    new filter(this).blocktx(height, address, flag, fn)
+    
+    return new filter(this).blocktxSync(height, address, flag)
   }
 }
 
@@ -21472,7 +23165,11 @@ for (const namespace in api.commands) {
 if (typeof window !== 'undefined' && typeof window.SeeleWebProvider === 'undefined'){
   window.SeeleWebProvider = SeeleWebProvider;
 }
+if(typeof global !== 'undefined') {
+  global.SeeleWebProvider = SeeleWebProvider;
+}
+
 module.exports = SeeleWebProvider;
 
-}).call(this,require("buffer").Buffer)
-},{"./commands":63,"./filter":64,"./tx":65,"buffer":72,"http":101}]},{},[]);
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer)
+},{"./commands":71,"./filter":72,"./tx":73,"buffer":81,"http":112,"xhr2-cookies":65,"xmlhttprequest":70}]},{},[]);

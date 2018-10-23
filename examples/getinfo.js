@@ -1,32 +1,35 @@
 // var seelejs = require('seele.js');
 var seelejs  = require('../src/seele');
 
-var client = new seelejs("127.0.0.1", "8037", [{'name':'Content-Type', 'value':'application/json'}], "username", "userpwd", 0);
+var client = new seelejs("http://127.0.0.1:8037", "", "username", "userpwd", 0);
 
-// Call mode 1
+// async - Call mode 1
 client.getInfo(console.log);
 
-// Call mode 2
+// async - Call mode 2
 client.exec("getInfo");
 
-// Call mode 3
-client.exec("getInfo", function(info){
-    if (info instanceof Error){
-		console.log("Error")
-		console.log(info)
-		return 
+// async - Call mode 3
+client.exec("getInfo", function(err, info){
+    if (err){
+		console.log(err)
+		return
 	}
 	
 	console.log(info)
 });
 
-// Call mode 4
-client.send("getInfo", function(info){
-    if (info instanceof Error){
-		console.log("Error")
-		console.log(info)
-		return 
+// async - Call mode 4
+client.send("getInfo", function(err, info){
+    if (err){
+		console.log(err)
+		return
 	}
 	
 	console.log(info)
 });
+
+
+// sync - Call mode
+var info = client.sendSync("getInfo");
+console.log(info);

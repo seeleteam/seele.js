@@ -6,7 +6,7 @@ SeeleJS is a generic scripting API library for the Seele blockchain.
 
 ### NPM
 
-`npm install seele.js@1.5.1`
+`npm install seele.js@1.5.2`
 
 > Due to problems with the keccak library, some errors will occur during installation, but if `Keccak bindings compilation fail. Pure JS implementation will be used.` occurs, it doesn't matter, the package is normal. Follow-up will consider blocking this error.
 
@@ -36,7 +36,7 @@ client.getInfo(function(err, info) {
 
 ### Meteor
 
-`wangff:seelejs@0.0.7` Or `meteor add wangff:seelejs@0.0.7`
+`wangff:seelejs@0.0.8` Or `meteor add wangff:seelejs@0.0.8`
 
 Also, when you import `seele.js` /`seele_browerify.js`, the global variable `SeeleWebProvider` is set, so you can use it directly, just like:
 
@@ -64,10 +64,10 @@ If the last parameter is not bound to a callback function, the console.log is us
 var seelejs = require('seele.js');
 
 var client = new seelejs();
-client.getInfo(function(info) {
-  if (info instanceof Error){
+client.getInfo(function(err, info) {
+  if (err){
     console.log("Error")
-    console.log(info)
+    console.log(err)
     return
   }
 
@@ -78,10 +78,10 @@ client.exec("getInfo", console.log);
 
 client.exec("getBlock", "", 1, false, console.log);
 
-client.send("getBlock", "", 1, false, function(info) {
-  if (info instanceof Error){
+client.send("getBlock", "", 1, false, function(err, info) {
+  if (err){
     console.log("Error")
-    console.log(info)
+    console.log(err)
     return
   }
 
@@ -124,10 +124,10 @@ Available options and default values:
 The [Seele API](https://github.com/seeleteam/go-seele/wiki/API-Document#json-rpc-list) is supported as direct methods. Use camelcase and lowercase first letter.
 
 ```js
-client.getInfo(function(info) {
-  if (info instanceof Error){
+client.getInfo(function(err, info) {
+  if (err){
     console.log("Error")
-    console.log(info)
+    console.log(err)
     return
   }
 
@@ -141,10 +141,10 @@ Sends the given command with optional arguments. Function `callback` defaults to
 All of the API commands are supported in camelcase and lowercase first letter.
 
 ```js
-client.send("getBlock", "", 1, false, function(info) {
-  if (info instanceof Error){
+client.send("getBlock", "", 1, false, function(err, info) {
+  if (err){
     console.log("Error")
-    console.log(info)
+    console.log(err)
     return
   }
 
@@ -170,10 +170,10 @@ All of the API commands are supported in camelcase and lowercase first letter.
 ```js
 client.exec("getInfo");
 
-client.exec("getInfo", function(info){
-  if (info instanceof Error){
+client.exec("getInfo", function(err, info) {
+  if (err){
     console.log("Error")
-    console.log(info)
+    console.log(err)
     return
   }
 
@@ -215,12 +215,18 @@ tx = generateTx(privatekey, rawTx)
 
 Filtering transactions for a specific address based on block height, an error occurs if the block height does not exist. If the height is -1, it will filter the current block. When the flag is 1, the transaction `from` equal to the `address` is filtered in the block. When the flag is 2, the transaction `to` equal to the `address` is filtered in the block.
 
+>When this call ends, the callback function is called and the data is "end".
+
 ```js
 var txs = client.filterBlockTx(-1, "0x4c10f2cd2159bb432094e3be7e17904c2b4aeb21", "2")
 console.log("sync:"+JSON.stringify(txs))
 
 console.log("asdfasdf")
 client.filterBlockTx(123, "0x0000000000000000000000000000000000000000", "1", function(txs){
+    if (txs == "end"){
+      console.log("filter over")
+      return
+    }
     console.log("async:"+JSON.stringify(txs))
 })
 ```

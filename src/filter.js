@@ -36,6 +36,8 @@ class fileter {
                 }
             });
         });
+
+        fn("end");
     }
 
     /**

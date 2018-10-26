@@ -11,8 +11,6 @@ if (typeof window !== 'undefined' && window.XMLHttpRequest) {
   XMLHttpRequest = require('xmlhttprequest').XMLHttpRequest; // jshint ignore: line
 }
 
-var XHR2 = require('xhr2-cookies').XMLHttpRequest; // jshint ignore: line
-
 /**
 * SeeleWebProvider should be used to send rpc calls over http
 * @param {String} host A domain name or IP address of the server to issue the request to. Default: 'localhost'.
@@ -38,14 +36,7 @@ class SeeleWebProvider {
   * @return {ClientRequest} object
   */
   prepareRequest(async) {
-    var request;
-
-    if (async) {
-      request = new XHR2();
-      request.timeout = this.timeout;
-    } else {
-      request = new XMLHttpRequest();
-    }
+    var request = new XMLHttpRequest();
     request.withCredentials = true;
     request.open('POST', this.host, async);
 
@@ -85,7 +76,7 @@ class SeeleWebProvider {
       params: args
     });
 
-    request.onreadystatechange = function () {
+    request.onloadend = function () {
       if (request.readyState === 4 && request.timeout !== 1) {
         var result = request.responseText
         try {
@@ -105,7 +96,11 @@ class SeeleWebProvider {
     request.ontimeout = function () {
       fn(new Error('CONNECTION TIMEOUT: timeout of ' + this.timeout + ' ms achieved'));
     };
-  
+
+    request.onerror = function () {
+      fn(request.statusText);
+    };
+    
     try {
       request.send(rpcData);
     } catch (error) {
@@ -131,9 +126,14 @@ class SeeleWebProvider {
       params: args
     });
 
+    request.onerror = function () {
+      throw request.statusText
+    };
+    
     try {
       request.send(rpcData);
     } catch (error) {
+      console.log(error)
       throw new Error('CONNECTION ERROR: Couldn\'t connect to node '+ this.host +'.');
     }
   

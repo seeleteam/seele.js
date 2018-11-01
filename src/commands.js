@@ -23,7 +23,8 @@ var commands = module.exports.commands = {
     'getPeerCount',
     'getNetworkVersion',
     'getProtocolVersion',
-    'getNetworkID'
+    'getNetworkID',
+    'isListening'
   ],
   "miner" : [
     'start',

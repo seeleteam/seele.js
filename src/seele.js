@@ -239,6 +239,17 @@ class SeeleWebProvider {
   }
 }
 
+/**
+ * Returns true if object is BigNumber, otherwise false
+ *
+ * @method isBigNumber
+ * @param {Object}
+ * @return {Boolean}
+ */
+var isBigNumber = function (object) {
+  return (object && (object instanceof BigNumber || (object.constructor && object.constructor.name === 'BigNumber')));
+};
+
 for (const namespace in api.commands) {
   api.commands[namespace].forEach(command => {
     var cp = SeeleWebProvider.prototype

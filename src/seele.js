@@ -3,6 +3,14 @@ var api  = require('./commands')
  ,  transaction   = require('./tx')
  ,  filter   = require('./filter')
 
+ // browser
+if (typeof window !== 'undefined' && window.XMLHttpRequest) {
+  XMLHttpRequest = window.XMLHttpRequest; // jshint ignore: line
+// node
+} else {
+  XMLHttpRequest = require('xmlhttprequest').XMLHttpRequest; // jshint ignore: line
+}
+
 /**
 * SeeleWebProvider should be used to send rpc calls over http
 * @param {String} host A domain name or IP address of the server to issue the request to. Default: 'localhost'.
@@ -12,10 +20,9 @@ var api  = require('./commands')
 * @param {String} password Basic authentication i.e. 'user:password' to compute an Authorization header. Not used.
 * @param {Number} timeout A number specifying the socket timeout in milliseconds. This will set the timeout before the socket is connected. Default: '30000'.
 */
-class seeleWebProvider {
-  constructor(host, port, headers, user, password, timeout) {
-    this.host = host || 'localhost';
-    this.port = port || '8037';
+class SeeleWebProvider {
+  constructor(host, headers, user, password, timeout) {
+    this.host = host || 'http://localhost:8037';
     this.headers = headers;
     this.user = user;
     this.password = password;
@@ -25,48 +32,25 @@ class seeleWebProvider {
   /**
   * Should be called to prepare a new ClientRequest
   * @method prepareRequest
-  * @param {Object} fn the function to process result or error
+  * @param {Boolean} true if request should be async
   * @return {ClientRequest} object
   */
-  prepareRequest(fn) {
-    var options = {
-      host: this.host,
-      port: this.port,
-      method: "POST",
-      timeout: this.timeout
-    };
-
-    var request = http.request(options, function (response) {
-      var data = '';
-      response.setEncoding('utf8');
-      response.on('data', function (chunk) {
-        data += chunk;
-      });
-      response.on('end', function () {
-        try {
-          data = JSON.parse(data);
-          if (data.error) {
-            return fn(new Error(JSON.stringify(data)));
-          }
-          fn(data.result);
-        } catch (exception) {
-            var errMsg = exception + ' : ' + JSON.stringify(data);
-            return fn(new Error(errMsg));
-        }
-      });
-    });
+  prepareRequest(async) {
+    var request = new XMLHttpRequest();
+    request.withCredentials = true;
+    request.open('POST', this.host, async);
 
     // user and password
     if (this.user && this.password) {
       var auth = 'Basic ' + new Buffer(this.user + ':' + this.password).toString('base64');
-      request.setHeader('Authorization', auth);
+      request.setRequestHeader('Authorization', auth);
     }
 
     // headers
-    request.setHeader('Content-Type', 'application/json');
+    request.setRequestHeader('Content-Type', 'application/json');
     if (this.headers) {
       this.headers.forEach(function (header) {
-        request.setHeader(header.name, header.value);
+        request.setRequestHeader(header.name, header.value);
       });
     }
     return request;
@@ -76,7 +60,7 @@ class seeleWebProvider {
   * Should be called to make async request
   * @method send
   * @param {String} command
-  * @return {Object} result
+  * @return {Object} request
   * @todo Using namespace
   */
   send(command) {
@@ -85,40 +69,86 @@ class seeleWebProvider {
       fn = args.pop().bind(this);
     }
 
-    var request = this.prepareRequest(fn)
+    var request = this.prepareRequest(true)
     var rpcData = JSON.stringify({
       id: new Date().getTime(),
       method: api.getNamespace(command).concat("_").concat(command),
       params: args
     });
 
-    request.on('error', fn);
-    request.end(rpcData);
-    return this;
+    request.onloadend = function () {
+      if (request.readyState === 4 && request.timeout !== 1) {
+        var result = request.responseText
+        try {
+          result = JSON.parse(result);
+          if (result.error) {
+            fn(new Error(JSON.stringify(result)));
+            return;
+          }
+
+          fn(null, result.result);
+        } catch (exception) {
+          fn(new Error(exception + ' : ' + JSON.stringify(result)));
+        }
+      }
+    };
+  
+    request.ontimeout = function () {
+      fn(new Error('CONNECTION TIMEOUT: timeout of ' + this.timeout + ' ms achieved'));
+    };
+
+    request.onerror = function () {
+      fn(request.statusText);
+    };
+    
+    try {
+      request.send(rpcData);
+    } catch (error) {
+      fn(new Error('CONNECTION ERROR: Couldn\'t connect to node '+ this.host +'.'));
+    }
+    return request;
   }
 
   /**
   * Should be called to make sync request
   * @method send
   * @param {String} command
-  * @return {Promise} result
+  * @return {Object} result
   * @todo Using namespace
   */
   sendSync(command) {
-    var self = this, args = Array.prototype.slice.call(arguments, 1)
-    return new Promise(function(resolve){
-      var request = self.prepareRequest(resolve);
-      var rpcData = JSON.stringify({
-        id: new Date().getTime(),
-        method: api.getNamespace(command).concat("_").concat(command),
-        params: args
-      });
+    var args    = Array.prototype.slice.call(arguments, 1)
+    
+    var request = this.prepareRequest(false)
+    var rpcData = JSON.stringify({
+      id: new Date().getTime(),
+      method: api.getNamespace(command).concat("_").concat(command),
+      params: args
+    });
 
-      request.on('error', (e) =>{
-        resolve(e)
-      });
-      request.end(rpcData);
-    })
+    request.onerror = function () {
+      throw request.statusText
+    };
+    
+    try {
+      request.send(rpcData);
+    } catch (error) {
+      console.log(error)
+      throw new Error('CONNECTION ERROR: Couldn\'t connect to node '+ this.host +'.');
+    }
+  
+    var result = request.responseText;
+  
+    try {
+      result = JSON.parse(result);
+      if (result.error) {
+        throw new Error(JSON.stringify(result));
+      }
+      
+      return result.result
+    } catch (exception) {
+      throw new Error(exception + ' : ' + JSON.stringify(result));
+    }
   }
 
   /**
@@ -126,7 +156,6 @@ class seeleWebProvider {
    * @param {string} command 
    */
   invalid(command) {
-    var args = Array.prototype.slice.call(arguments, 1);
     return console.log(new Error('No such command "' + command + '"'));
   }
 
@@ -189,32 +218,41 @@ class seeleWebProvider {
    * When the flag is 1, the transaction `from` equal to the `address` is filtered in the block.
    * When the flag is 2, the transaction `to` equal to the `address` is filtered in the block.
    * @example
-   * client.filterBlockTx(-1, "0x4c10f2cd2159bb432094e3be7e17904c2b4aeb21", "1")
-   * client.filterBlockTx(1235435, "0x4c10f2cd2159bb432094e3be7e17904c2b4aeb21", "2")
+   * var txs = client.filterBlockTx(-1, "0x4c10f2cd2159bb432094e3be7e17904c2b4aeb21", "1")
+   * 
+   * client.filterBlockTx(1235435, "0x4c10f2cd2159bb432094e3be7e17904c2b4aeb21", "2", function(txs){
+   *     console.log(txs)
+   * })
    * @param {Number} height 
    * @param {String} address 
    * @param {Number} flag 1:from 2:to
    */
   filterBlockTx(height, address, flag) {
-    var args = Array.prototype.slice.call(arguments, 1), fn = console.log;
+    var args = Array.prototype.slice.call(arguments, 1)
     if (typeof args[args.length - 1] === 'function') {
-      fn = args.pop().bind(this);
+      var fn = args.pop().bind(this);
+      new filter(this).blocktx(height, address, flag, fn)
+      return
     }
-
-    new filter(this).blocktx(height, address, flag, fn)
+    
+    return new filter(this).blocktxSync(height, address, flag)
   }
 }
 
 for (const namespace in api.commands) {
   api.commands[namespace].forEach(command => {
-    var cp = seeleWebProvider.prototype
+    var cp = SeeleWebProvider.prototype
     cp[command] = function() {
       this.send(command, ...arguments);
     }
   })
 }
 
-if (typeof window !== 'undefined' && typeof window.seeleWebProvider === 'undefined'){
-  window.seeleWebProvider = seeleWebProvider;
+if (typeof window !== 'undefined' && typeof window.SeeleWebProvider === 'undefined'){
+  window.SeeleWebProvider = SeeleWebProvider;
 }
-module.exports = seeleWebProvider;
+if(typeof global !== 'undefined') {
+  global.SeeleWebProvider = SeeleWebProvider;
+}
+
+module.exports = SeeleWebProvider;

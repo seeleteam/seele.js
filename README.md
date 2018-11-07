@@ -6,7 +6,7 @@ SeeleJS is a generic scripting API library for the Seele blockchain.
 
 ### NPM
 
-`npm install seele.js@1.5.2`
+`npm install seele.js@1.6.0`
 
 > Due to problems with the keccak library, some errors will occur during installation, but if `Keccak bindings compilation fail. Pure JS implementation will be used.` occurs, it doesn't matter, the package is normal. Follow-up will consider blocking this error.
 
@@ -36,7 +36,7 @@ client.getInfo(function(err, info) {
 
 ### Meteor
 
-`wangff:seelejs@0.0.8` Or `meteor add wangff:seelejs@0.0.8`
+`wangff:seelejs@0.1.0` Or `meteor add wangff:seelejs@0.1.0`
 
 Also, when you import `seele.js` /`seele_browerify.js`, the global variable `SeeleWebProvider` is set, so you can use it directly, just like:
 
@@ -229,4 +229,43 @@ client.filterBlockTx(123, "0x0000000000000000000000000000000000000000", "1", fun
     }
     console.log("async:"+JSON.stringify(txs))
 })
+```
+
+## Properties
+
+### .wallet
+
+This object is used to create the Seele account and export/import the keystore file.
+
++ shardnum(Number) : The Seele shard number. Default: *`2`*.
++ accounts(Array) : The accounts[i] means the wallet contains the accounts of the shard i+1. Default: *`[[],[]]`*.
+
+#### Method
+
+##### .create() return keypair [JSON String, contains 'publickey' and 'privatekey']
+
+Create a Seele account for the random shard.
+
+```js
+let keypair = client.wallet.create()
+console.log(keypair)
+```
+
+##### .createbyshard(shard [Number]) return keypair [JSON String, contains 'publickey' and 'privatekey' Hex String]
+
+Create a Seele account for the specified shard.
+
+```js
+let keypair = client.wallet.createbyshard(2)
+console.log(keypair)
+```
+
+##### .getshardnum(publickey [Hex String]) return shard [Number]
+
+Calculate the shard of the publickey.
+
+```js
+let keypair = client.wallet.create()
+let shard = client.wallet.getshardnum(keypair.publickey)
+console.log(shard)
 ```

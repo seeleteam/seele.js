@@ -9,7 +9,8 @@ var commands = module.exports.commands = {
     'getBlock',
     'call',
     'getLogs',
-    'generatePayload'
+    'generatePayload',
+    'estimateGas'
   ],
   "txpool" : [
     'getBlockTransactionCount',

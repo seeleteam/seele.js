@@ -10,7 +10,9 @@ var commands = module.exports.commands = {
     'call',
     'getLogs',
     'generatePayload',
-    'estimateGas'
+    'estimateGas',
+    'isListening',
+    'isSyncing'
   ],
   "txpool" : [
     'getBlockTransactionCount',
@@ -25,7 +27,6 @@ var commands = module.exports.commands = {
     'getNetworkVersion',
     'getProtocolVersion',
     'getNetworkID',
-    'isListening'
   ],
   "miner" : [
     'start',

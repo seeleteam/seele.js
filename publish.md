@@ -4,7 +4,9 @@ When you change the project, maybe you should publish it.
 
 ## Update files
 
-+ package.json/package-lock.json : `version`.
+### package.json/package-lock.json : `version`
+
+Change the file version.
 
 ```md
   ...
@@ -13,7 +15,9 @@ When you change the project, maybe you should publish it.
   ...
 ```
 
-+ package.js : `version:`.
+### package.js : `version:`
+
+Change the file version.
 
 ```md
   ...
@@ -22,13 +26,19 @@ When you change the project, maybe you should publish it.
   ...
 ```
 
-+ browserify/seele_browserify.js : regenerate.
+### browserify/seele_browserify.js : regenerate
+
+Regenerate the file.
 
 ```js
 browserify -r ./src/seele.js:seele.js > ./browserify/seele_browserify.js
 ```
 
-+ README.md : edit version information.
+> Check the file encoding, if it is not UTF-8, change it to UTF-8.
+
+Change the file version.
+
+### README.md : edit version information
 
 ```md
 ### NPM

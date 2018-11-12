@@ -4,32 +4,38 @@ var seelejs  = require('../src/seele');
 var client = new seelejs("http://127.0.0.1:8037", "", "username", "userpwd", 0);
 
 // async - Call mode 1
-client.getInfo(console.log);
+let sendR = client.send("getInfo");
+sendR.then(data => {
+    console.log("data")
+    console.log(data)
+}).catch(err => {
+    console.log("err")
+    console.log(err)
+})
 
 // async - Call mode 2
-client.exec("getInfo");
+let execR = client.exec("getInfo");
+execR.then(data => {
+    console.log("data")
+    console.log(data)
+}).catch(err => {
+    console.log("err")
+    console.log(err)
+})
 
 // async - Call mode 3
-client.exec("getInfo", function(err, info){
-    if (err){
-		console.log(err)
-		return
-	}
-	
-	console.log(info)
-});
+client.getInfo().then(data => {
+    console.log("data")
+    console.log(data)
+}).catch(err => {
+    console.log("err")
+    console.log(err)
+})
 
-// async - Call mode 4
-client.send("getInfo", function(err, info){
-    if (err){
-		console.log(err)
-		return
-	}
-	
-	console.log(info)
-});
-
-
-// sync - Call mode
-var info = client.sendSync("getInfo");
+// sync - Call mode 1
+let info = client.sendSync("getInfo");
 console.log(info);
+
+// sync - Call mode 2
+let execI = client.execSync("getInfo");
+console.log(execI);

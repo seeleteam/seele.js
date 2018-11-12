@@ -42989,49 +42989,51 @@ class SeeleWebProvider {
   * @todo Using namespace
   */
   send(command) {
-    var args = Array.prototype.slice.call(arguments, 1), fn = console.log;
-    if (typeof args[args.length - 1] === 'function') {
-      fn = args.pop().bind(this);
-    }
-
-    var request = this.prepareRequest(true)
-    var rpcData = JSON.stringify({
-      id: new Date().getTime(),
-      method: api.getNamespace(command).concat("_").concat(command),
-      params: args
-    });
-
-    request.onloadend = function () {
-      if (request.readyState === 4 && request.timeout !== 1) {
-        var result = request.responseText
-        try {
-          result = JSON.parse(result);
-          if (result.error) {
-            fn(new Error(JSON.stringify(result)));
-            return;
-          }
-
-          fn(null, result.result);
-        } catch (exception) {
-          fn(new Error(exception + ' : ' + JSON.stringify(result)));
-        }
-      }
-    };
+    return new Promise((resolve, reject) => {
+      var args = Array.prototype.slice.call(arguments, 1)
+      // if (typeof args[args.length - 1] === 'function') {
+      //   resolve = args.pop().bind(this);
+      // }
   
-    request.ontimeout = function () {
-      fn(new Error('CONNECTION TIMEOUT: timeout of ' + this.timeout + ' ms achieved'));
-    };
-
-    request.onerror = function () {
-      fn(request.statusText);
-    };
+      var request = this.prepareRequest(true)
+      var rpcData = JSON.stringify({
+        id: new Date().getTime(),
+        method: api.getNamespace(command).concat("_").concat(command),
+        params: args
+      });
+  
+      request.onloadend = function () {
+        if (request.readyState === 4 && request.timeout !== 1) {
+          var result = request.responseText
+          try {
+            result = JSON.parse(result);
+            if (result.error) {
+              reject(new Error(JSON.stringify(result)));
+              return;
+            }
+  
+            resolve(result.result);
+          } catch (exception) {
+            reject(new Error(exception + ' : ' + JSON.stringify(result)));
+          }
+        }
+      };
     
-    try {
-      request.send(rpcData);
-    } catch (error) {
-      fn(new Error('CONNECTION ERROR: Couldn\'t connect to node '+ this.host +'.'));
-    }
-    return request;
+      request.ontimeout = function () {
+        reject(new Error('CONNECTION TIMEOUT: timeout of ' + this.timeout + ' ms achieved'));
+      };
+  
+      request.onerror = function () {
+        reject(request.statusText);
+      };
+      
+      try {
+        request.send(rpcData);
+      } catch (error) {
+        reject(new Error('CONNECTION ERROR: Couldn\'t connect to node '+ this.host +'.'));
+      }
+      return request;
+    })
   }
 
   /**
@@ -43153,13 +43155,6 @@ class SeeleWebProvider {
    * @param {Number} flag 1:from 2:to
    */
   filterBlockTx(height, address, flag) {
-    var args = Array.prototype.slice.call(arguments, 1)
-    if (typeof args[args.length - 1] === 'function') {
-      var fn = args.pop().bind(this);
-      new filter(this).blocktx(height, address, flag, fn)
-      return
-    }
-    
     return new filter(this).blocktxSync(height, address, flag)
   }
 }
@@ -43168,7 +43163,7 @@ for (const namespace in api.commands) {
   api.commands[namespace].forEach(command => {
     var cp = SeeleWebProvider.prototype
     cp[command] = function() {
-      this.send(command, ...arguments);
+      return this.send(command, ...arguments);
     }
   })
 }

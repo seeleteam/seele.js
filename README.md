@@ -6,7 +6,7 @@ SeeleJS is a generic scripting API library for the Seele blockchain.
 
 ### NPM
 
-`npm install seele.js@1.6.0`
+`npm install seele.js@1.6.2`
 
 > Due to problems with the keccak library, some errors will occur during installation, but if `Keccak bindings compilation fail. Pure JS implementation will be used.` occurs, it doesn't matter, the package is normal. Follow-up will consider blocking this error.
 
@@ -19,84 +19,90 @@ Alternatively, if you are in the client/browser you can import `seele_browserify
 ```html
 <script src="./browserify/seele_browserify.js"></script>
 <script>
-var seelejs = require('seele.js');
+const seelejs = require('seele.js');
 
-var client = new seelejs();
-client.getInfo(function(err, info) {
-  if (err){
-    console.log("Error")
-    console.log(err)
-    return
-  }
-
-  console.log(info)
-});
+const client = new seelejs();
+client.getInfo().then(data => {
+  console.log("data")
+  console.log(data)
+}).catch(err => {
+  console.log("err")
+  console.log(err)
+})
 </script>
 ```
 
 ### Meteor
 
-`wangff:seelejs@0.1.0` Or `meteor add wangff:seelejs@0.1.0`
+`wangff:seelejs@0.1.2` Or `meteor add wangff:seelejs@0.1.2`
 
 Also, when you import `seele.js` /`seele_browerify.js`, the global variable `SeeleWebProvider` is set, so you can use it directly, just like:
 
 ```js
-var client = new SeeleWebProvider();
+const client = new SeeleWebProvider();
 
-client.getInfo(function(err, info) {
-  if (err){
-    console.log("Error")
-    console.log(err)
-    return
-  }
-
-  console.log(info)
-});
+client.getInfo().then(data => {
+  console.log("data")
+  console.log(data)
+}).catch(err => {
+  console.log("err")
+  console.log(err)
+})
 ```
 
 ## Example
 
 ### Async Call
 
-If the last parameter is not bound to a callback function, the console.log is used by default.
+These functions will return a Promise object, you can use `then` to process the result and use `catch` to handle the error.
 
 ```js
-var seelejs = require('seele.js');
+const seelejs = require('seele.js');
 
-var client = new seelejs();
-client.getInfo(function(err, info) {
-  if (err){
-    console.log("Error")
+const client = new seelejs();
+// async - Call mode 1
+let sendR = client.send("getInfo");
+sendR.then(data => {
+    console.log("data")
+    console.log(data)
+}).catch(err => {
+    console.log("err")
     console.log(err)
-    return
-  }
+})
 
-  console.log(info)
-});
-
-client.exec("getInfo", console.log);
-
-client.exec("getBlock", "", 1, false, console.log);
-
-client.send("getBlock", "", 1, false, function(err, info) {
-  if (err){
-    console.log("Error")
+// async - Call mode 2
+let execR = client.exec("getInfo");
+execR.then(data => {
+    console.log("data")
+    console.log(data)
+}).catch(err => {
+    console.log("err")
     console.log(err)
-    return
-  }
+})
 
-  console.log(info)
-});
+// async - Call mode 3
+client.getInfo().then(data => {
+    console.log("data")
+    console.log(data)
+}).catch(err => {
+    console.log("err")
+    console.log(err)
+})
 ```
 
 ### Sync Call
 
 ```js
-var seelejs = require('seele.js');
+const seelejs = require('seele.js');
 
-var client = new seelejs();
-var info = client.sendSync("getInfo");
+const client = new seelejs();
+// sync - Call mode 1
+let info = client.sendSync("getInfo");
 console.log(info);
+
+// sync - Call mode 2
+let execI = client.execSync("getInfo");
+console.log(execI);
 ```
 
 ## Options
@@ -104,7 +110,7 @@ console.log(info);
 You can pass options to the initialization function or use the default options.
 
 ```js
-var seelejs = require('seele.js');
+const seelejs = require('seele.js');
 
 function seelejs(host, headers, user, password, timeout){
   ...
@@ -124,15 +130,13 @@ Available options and default values:
 The [Seele API](https://github.com/seeleteam/go-seele/wiki/API-Document#json-rpc-list) is supported as direct methods. Use camelcase and lowercase first letter.
 
 ```js
-client.getInfo(function(err, info) {
-  if (err){
-    console.log("Error")
+client.getInfo().then(data => {
+    console.log("data")
+    console.log(data)
+}).catch(err => {
+    console.log("err")
     console.log(err)
-    return
-  }
-
-  console.log(info)
-});
+})
 ```
 
 ### .send(command [string], ...arguments..., callback [function])
@@ -141,15 +145,13 @@ Sends the given command with optional arguments. Function `callback` defaults to
 All of the API commands are supported in camelcase and lowercase first letter.
 
 ```js
-client.send("getBlock", "", 1, false, function(err, info) {
-  if (err){
-    console.log("Error")
+client.send("getBlock", "", 1, false).then(data => {
+    console.log("data")
+    console.log(data)
+}).catch(err => {
+    console.log("err")
     console.log(err)
-    return
-  }
-
-  console.log(info)
-});
+})
 ```
 
 ### .sendSync(command [string], ...arguments...)
@@ -170,15 +172,13 @@ All of the API commands are supported in camelcase and lowercase first letter.
 ```js
 client.exec("getInfo");
 
-client.exec("getInfo", function(err, info) {
-  if (err){
-    console.log("Error")
+client.exec("getInfo").then(data => {
+    console.log("data")
+    console.log(data)
+}).catch(err => {
+    console.log("err")
     console.log(err)
-    return
-  }
-
-  console.log(info)
-});
+})
 ```
 
 ### .execSync(command [string], ...arguments...)
@@ -211,24 +211,13 @@ var rawTx = {
 tx = generateTx(privatekey, rawTx)
 ```
 
-### .filterBlockTx(height [Number], address [Hex String], flag [Number], callback [function]) return tx [Object]
+### .filterBlockTx(height [Number], address [Hex String], flag [Number]) return txs [Array - tx JSON]
 
 Filtering transactions for a specific address based on block height, an error occurs if the block height does not exist. If the height is -1, it will filter the current block. When the flag is 1, the transaction `from` equal to the `address` is filtered in the block. When the flag is 2, the transaction `to` equal to the `address` is filtered in the block.
-
->When this call ends, the callback function is called and the data is "end".
 
 ```js
 var txs = client.filterBlockTx(-1, "0x4c10f2cd2159bb432094e3be7e17904c2b4aeb21", "2")
 console.log("sync:"+JSON.stringify(txs))
-
-console.log("asdfasdf")
-client.filterBlockTx(123, "0x0000000000000000000000000000000000000000", "1", function(txs){
-    if (txs == "end"){
-      console.log("filter over")
-      return
-    }
-    console.log("async:"+JSON.stringify(txs))
-})
 ```
 
 ## Properties

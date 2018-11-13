@@ -52,8 +52,8 @@ Change the file version.
 
 ## npm
 
-npm publish
+npm publish(seelejs,seele.js)
 
 ## meteor
 
-meteor publish
+meteor publish(wangff,seelejs)

@@ -42152,7 +42152,9 @@ var commands = module.exports.commands = {
     'call',
     'getLogs',
     'generatePayload',
-    'estimateGas'
+    'estimateGas',
+    'isListening',
+    'isSyncing'
   ],
   "txpool" : [
     'getBlockTransactionCount',
@@ -42167,7 +42169,6 @@ var commands = module.exports.commands = {
     'getNetworkVersion',
     'getProtocolVersion',
     'getNetworkID',
-    'isListening'
   ],
   "miner" : [
     'start',
@@ -42962,7 +42963,7 @@ class SeeleWebProvider {
   */
   prepareRequest(async) {
     var request = new XMLHttpRequest();
-    request.withCredentials = true;
+    request.withCredentials = false;
     request.open('POST', this.host, async);
 
     // user and password

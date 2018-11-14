@@ -38,7 +38,7 @@ class SeeleWebProvider {
   */
   prepareRequest(async) {
     var request = new XMLHttpRequest();
-    request.withCredentials = true;
+    request.withCredentials = false;
     request.open('POST', this.host, async);
 
     // user and password

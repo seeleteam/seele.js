@@ -26,18 +26,6 @@ Change the file version.
   ...
 ```
 
-### browserify/seele_browserify.js : regenerate
-
-Regenerate the file.
-
-```js
-browserify -r ./src/seele.js:seele.js > ./browserify/seele_browserify.js
-```
-
-> Check the file encoding, if it is not UTF-8, change it to UTF-8.
-
-Change the file version.
-
 ### README.md : edit version information
 
 ```md
@@ -50,9 +38,21 @@ Change the file version.
 `wangff:seelejs@0.1.0` Or `meteor add wangff:seelejs@0.1.0`
 ```
 
+### browserify/seele_browserify.js : regenerate
+
+Regenerate the file.
+
+```js
+browserify -r ./src/seele.js:seele.js > ./browserify/seele_browserify.js
+```
+
+> Check the file encoding, if it is not UTF-8, change it to UTF-8.
+
+Change the file version.
+
 ## npm
 
-npm publish(seelejs,seele.js)
+npm publish(seelejs,seele.js)(seelejs,seele.js)
 
 ## meteor
 

@@ -42923,10 +42923,11 @@ module.exports = Wallet
 }).call(this,require("buffer").Buffer)
 },{"./utils":243,"buffer":52,"crypto":61,"elliptic":180,"fs":1,"keccak":211,"path":118,"rlp":221,"scrypt-js":223,"secp256k1":224}],"seele.js":[function(require,module,exports){
 (function (global,Buffer){
-var api  = require('./commands')
- ,  transaction   = require('./tx')
- ,  filter   = require('./filter')
- ,  Wallet   = require('./wallet')
+const api  = require('./commands')
+const transaction   = require('./tx')
+const filter   = require('./filter')
+const Wallet   = require('./wallet')
+const util   = require('./utils')
 
  // browser
 if (typeof window !== 'undefined' && window.XMLHttpRequest) {
@@ -42953,6 +42954,7 @@ class SeeleWebProvider {
     this.password = password;
     this.timeout = timeout || 30000;
     this.wallet = new Wallet()
+    this.util = util
   }
   
   /**
@@ -43179,4 +43181,4 @@ if(typeof global !== 'undefined') {
 module.exports = SeeleWebProvider;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer)
-},{"./commands":240,"./filter":241,"./tx":242,"./wallet":244,"buffer":52,"xmlhttprequest":239}]},{},[]);
+},{"./commands":240,"./filter":241,"./tx":242,"./utils":243,"./wallet":244,"buffer":52,"xmlhttprequest":239}]},{},[]);

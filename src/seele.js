@@ -1,7 +1,8 @@
-var api  = require('./commands')
- ,  transaction   = require('./tx')
- ,  filter   = require('./filter')
- ,  Wallet   = require('./wallet')
+const api  = require('./commands')
+const transaction   = require('./tx')
+const filter   = require('./filter')
+const Wallet   = require('./wallet')
+const util   = require('./utils')
 
  // browser
 if (typeof window !== 'undefined' && window.XMLHttpRequest) {
@@ -28,6 +29,7 @@ class SeeleWebProvider {
     this.password = password;
     this.timeout = timeout || 30000;
     this.wallet = new Wallet()
+    this.util = util
   }
   
   /**

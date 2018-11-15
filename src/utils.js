@@ -1,12 +1,15 @@
-var BigNumber = require('bignumber.js');
-var utf8 = require('utf8');
+const BigNumber = require('bignumber.js');
+const utf8 = require('utf8');
+
+// The result is a maximum of 8 decimal places
+// Rounds towards -Infinity
+BigNumber.config({DECIMAL_PLACES:8, ROUNDING_MODE:3})
 
 var unitMap = {
     'noseele':      '0',
     'fan':          '1',
     'seele':        '100000000'
 };
-
 /**
  * Should be called to pad string to expected length
  *
@@ -223,12 +226,11 @@ var getValueOfUnit = function (unit) {
  *
  * @method fromFan
  * @param {Number|String} number can be a number, number string or a HEX of a decimal
- * @param {String} unit the unit to convert to, default ether
+ * @param {String} unit the unit to convert to, default seele
  * @return {String|Object} When given a BigNumber object it returns one as well, otherwise a number
 */
 var fromFan = function(number, unit) {
     var returnValue = toBigNumber(number).dividedBy(getValueOfUnit(unit));
-
     return isBigNumber(number) ? returnValue : returnValue.toString(10);
 };
 
@@ -237,7 +239,7 @@ var fromFan = function(number, unit) {
  *
  * @method toFan
  * @param {Number|String|BigNumber} number can be a number, number string or a HEX of a decimal
- * @param {String} unit the unit to convert from, default ether
+ * @param {String} unit the unit to convert from, default seele
  * @return {String|Object} When given a BigNumber object it returns one as well, otherwise a number
 */
 var toFan = function(number, unit) {

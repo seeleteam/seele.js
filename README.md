@@ -6,7 +6,7 @@ SeeleJS is a generic scripting API library for the Seele blockchain.
 
 ### NPM
 
-`npm install seele.js@1.6.3`
+`npm install seele.js@1.6.5`
 
 > Due to problems with the keccak library, some errors will occur during installation, but if `Keccak bindings compilation fail. Pure JS implementation will be used.` occurs, it doesn't matter, the package is normal. Follow-up will consider blocking this error.
 
@@ -34,7 +34,7 @@ client.getInfo().then(data => {
 
 ### Meteor
 
-`wangff:seelejs@0.1.3` Or `meteor add wangff:seelejs@0.1.3`
+`wangff:seelejs@0.1.5` Or `meteor add wangff:seelejs@0.1.5`
 
 Also, when you import `seele.js` /`seele_browerify.js`, the global variable `SeeleWebProvider` is set, so you can use it directly, just like:
 

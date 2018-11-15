@@ -44,6 +44,7 @@ Regenerate the file.
 
 ```js
 browserify -r ./src/seele.js:seele.js > ./browserify/seele_browserify.js
+browserify -r ./src/utils.js:seele-util.js > ./browserify/seele-util.js
 ```
 
 > Check the file encoding, if it is not UTF-8, change it to UTF-8.

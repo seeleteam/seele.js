@@ -31,7 +31,7 @@ class SeeleWebProvider {
     this.wallet = new Wallet()
     this.util = util
   }
-  
+
   /**
   * Should be called to prepare a new ClientRequest
   * @method prepareRequest
@@ -69,17 +69,17 @@ class SeeleWebProvider {
   send(command) {
     return new Promise((resolve, reject) => {
       var args = Array.prototype.slice.call(arguments, 1)
-      // if (typeof args[args.length - 1] === 'function') {
-      //   resolve = args.pop().bind(this);
-      // }
-  
+      if (typeof args[args.length - 1] === 'function') {
+        resolve = args.pop().bind(this);
+      }
+
       var request = this.prepareRequest(true)
       var rpcData = JSON.stringify({
         id: new Date().getTime(),
         method: api.getNamespace(command).concat("_").concat(command),
         params: args
       });
-  
+
       request.onloadend = function () {
         if (request.readyState === 4 && request.timeout !== 1) {
           var result = request.responseText
@@ -89,22 +89,22 @@ class SeeleWebProvider {
               reject(new Error(JSON.stringify(result)));
               return;
             }
-  
+
             resolve(result.result);
           } catch (exception) {
             reject(new Error(exception + ' : ' + JSON.stringify(result)));
           }
         }
       };
-    
+
       request.ontimeout = function () {
         reject(new Error('CONNECTION TIMEOUT: timeout of ' + this.timeout + ' ms achieved'));
       };
-  
+
       request.onerror = function () {
         reject(request.statusText);
       };
-      
+
       try {
         request.send(rpcData);
       } catch (error) {
@@ -123,7 +123,7 @@ class SeeleWebProvider {
   */
   sendSync(command) {
     var args    = Array.prototype.slice.call(arguments, 1)
-    
+
     var request = this.prepareRequest(false)
     var rpcData = JSON.stringify({
       id: new Date().getTime(),
@@ -134,22 +134,22 @@ class SeeleWebProvider {
     request.onerror = function () {
       throw request.statusText
     };
-    
+
     try {
       request.send(rpcData);
     } catch (error) {
       console.log(error)
       throw new Error('CONNECTION ERROR: Couldn\'t connect to node '+ this.host +'.');
     }
-  
+
     var result = request.responseText;
-  
+
     try {
       result = JSON.parse(result);
       if (result.error) {
         throw new Error(JSON.stringify(result));
       }
-      
+
       return result.result
     } catch (exception) {
       throw new Error(exception + ' : ' + JSON.stringify(result));
@@ -158,7 +158,7 @@ class SeeleWebProvider {
 
   /**
    * If an invalid command is called, it is processed
-   * @param {string} command 
+   * @param {string} command
    */
   invalid(command) {
     return console.log(new Error('No such command "' + command + '"'));
@@ -167,7 +167,7 @@ class SeeleWebProvider {
   /**
    * Executes the given command with optional arguments. Function `callback` defaults to `console.log`.
    * All of the API commands are supported in lowercase or camelcase. Or uppercase. Anycase!
-   * @param {string} command 
+   * @param {string} command
    */
   exec(command) {
     var func = api.isCommand(command) ? 'send' : 'invalid';
@@ -177,7 +177,7 @@ class SeeleWebProvider {
   /**
    * Executes the given command with optional arguments. Function `callback` defaults to `console.log`.
    * All of the API commands are supported in lowercase or camelcase. Or uppercase. Anycase!
-   * @param {string} command 
+   * @param {string} command
    */
   execSync(command) {
     var func = api.isCommand(command) ? 'sendSync' : 'invalid';
@@ -224,12 +224,12 @@ class SeeleWebProvider {
    * When the flag is 2, the transaction `to` equal to the `address` is filtered in the block.
    * @example
    * var txs = client.filterBlockTx(-1, "0x4c10f2cd2159bb432094e3be7e17904c2b4aeb21", "1")
-   * 
+   *
    * client.filterBlockTx(1235435, "0x4c10f2cd2159bb432094e3be7e17904c2b4aeb21", "2", function(txs){
    *     console.log(txs)
    * })
-   * @param {Number} height 
-   * @param {String} address 
+   * @param {Number} height
+   * @param {String} address
    * @param {Number} flag 1:from 2:to
    */
   filterBlockTx(height, address, flag) {

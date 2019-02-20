@@ -70,7 +70,8 @@ class SeeleWebProvider {
     return new Promise((resolve, reject) => {
       var args = Array.prototype.slice.call(arguments, 1)
       if (typeof args[args.length - 1] === 'function') {
-        resolve = args.pop().bind(this);
+        resolve = args[args.length - 1].bind(this);
+        reject = args.pop().bind(this);
       }
 
       var request = this.prepareRequest(true)

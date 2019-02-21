@@ -67,10 +67,12 @@ class SeeleWebProvider {
   * @todo Using namespace
   */
   send(command) {
+    var currHost = this.host;
     return new Promise((resolve, reject) => {
       var args = Array.prototype.slice.call(arguments, 1)
       if (typeof args[args.length - 1] === 'function') {
-        resolve = args.pop().bind(this);
+        resolve = args[args.length - 1].bind(this);
+        reject = args.pop().bind(this);
       }
 
       var request = this.prepareRequest(true)
@@ -80,35 +82,39 @@ class SeeleWebProvider {
         params: args
       });
 
-      request.onloadend = function () {
+      request.onload = function () {
         if (request.readyState === 4 && request.timeout !== 1) {
           var result = request.responseText
           try {
             result = JSON.parse(result);
             if (result.error) {
-              reject(new Error(JSON.stringify(result)));
+              reject("",new Error(JSON.stringify(result)));
               return;
             }
 
             resolve(result.result);
           } catch (exception) {
-            reject(new Error(exception + ' : ' + JSON.stringify(result)));
+            reject("",new Error(exception + ' : ' + JSON.stringify(result)));
           }
         }
       };
 
       request.ontimeout = function () {
-        reject(new Error('CONNECTION TIMEOUT: timeout of ' + this.timeout + ' ms achieved'));
+        reject("",new Error('CONNECTION TIMEOUT: timeout of ' + currHost + ' ms achieved'));
       };
 
       request.onerror = function () {
-        reject(request.statusText);
+        if(request.status == 0){
+          reject("",new Error('CONNECTION ERROR: Couldn\'t connect to node '+currHost +'.'));
+        }else{
+          reject("",request.statusText);
+        }
       };
 
       try {
         request.send(rpcData);
       } catch (error) {
-        reject(new Error('CONNECTION ERROR: Couldn\'t connect to node '+ this.host +'.'));
+        reject("",new Error('CONNECTION ERROR: Couldn\'t connect to node '+ currHost +'.'));
       }
       return request;
     })

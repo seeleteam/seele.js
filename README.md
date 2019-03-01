@@ -6,7 +6,7 @@ SeeleJS is a generic scripting API library for the Seele blockchain.
 
 ### NPM
 
-`npm install seele.js@1.6.5`
+`npm install seelejs-seeleteam@1.6.6`
 
 > Due to problems with the keccak library, some errors will occur during installation, but if `Keccak bindings compilation fail. Pure JS implementation will be used.` occurs, it doesn't matter, the package is normal. Follow-up will consider blocking this error.
 

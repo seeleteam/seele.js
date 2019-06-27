@@ -33,12 +33,12 @@ class SeeleWebProvider {
     this.util = util
   }
   
-  signtx(priKey, tx){
+  signTx(privateKey, tx){
     var signer = new stx()
-    return signer.sign(priKey, tx)
+    return signer.sign(privateKey, tx)
   }
   
-  generatekeys(shard){
+  generateKeys(shard){
     var wallet = new Wallet()
     return wallet.createbyshard(shard)
   }

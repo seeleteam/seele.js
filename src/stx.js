@@ -1,18 +1,49 @@
-var keccak256 = require('keccak256')
-var RLP = require('rlp')
-var secp256k1 = require('secp256k1')
+var keccak256 = require('keccak256')  // for hashing
+var RLP = require('rlp')              // for serialization
+var secp256k1 = require('secp256k1')  // for elliptic operations
 
 class stx{
-  // from string[66] and {}, to {}
-  // tx length and validity!!!
+  //***********************************
+  // public methods
+  //***********************************
+  
+  // public method: returns the signature result in json format from tx information and privateKey
+  // ps. the only public method
+  // input: string[66]
+  /*        tx = {
+                 "to": "0x27266c2b5706e9282546750764531c71052e0281",
+                 "amount": 0.4,
+                 "price":10.56,
+                 "limit":200000.1,
+                 "payload":"0x0101",
+                 "nonce": 0
+               }
+  output: signedTransaction = {
+             "Hash": "0xcaa03e211b3e89b991f8f1c1cff4d8640611eae4f634d435704c7ad2b42d08c4",
+             "Data": {
+                 "Type": 0,
+                 "From": "0x724fdfef2ea6411d6fed3bb95bad56da4170e0e1",
+                 "To": "0x27266c2b5706e9282546750764531c71052e0281",
+                 "Amount": 0,
+                 "AccountNonce": 0,
+                 "GasPrice": 10,
+                 "GasLimit": 200000,
+                 "Timestamp": 0,
+                 "Payload": "0x0101"
+             },
+             "Signature": {
+                 "Sig": "kIk8Lx+/h3+0/TuQYvHeU5q9YJkUPE7/7zgD3rlLPatfhEJWMCnCVFHGApFSnzJCXl8jbPBhHXoixLQzVTwcSQA="
+             }
+         }*/
   sign(priKey, tx){
-    if (!this.txvalidity(tx)) {
+    // step 1/5 check tx validity
+    if (!this.txValidity(tx)) {
       return "failed to sign"
     }
+    // step 2/5 initialize tx data values for hashing (also checks privateKey validity in publicKeyOf())
+    this.pubKey=this.publicKeyOf(priKey);
     this.timestamp=0;
     this.type=0;
-    
-    this.pubKey=this.pubKeyof(priKey);
     this.Data={
       "Type":       this.type,
       "From":       this.pubKey,
@@ -24,9 +55,11 @@ class stx{
       "Timestamp":  this.timestamp,
       "Payload":      tx.payload
     }
+    // step 3/5 hash tx data values
     this.hash=this.hash();
-    this.sign=this.signhash(this.hash, priKey.slice(2));
-    
+    // step 4/5 create signature from hash (of tx data values) and private key
+    this.sign=this.signHash(this.hash, priKey.slice(2));
+    // step 5/5 finalize returned signed tx data
     this.signedTransaction={
       "Hash": "0x"+this.hash,
       "Data": this.Data,
@@ -37,19 +70,27 @@ class stx{
     return this.signedTransaction
   }
   
-  // from string[66] to string[42]
-  // verfiy privateKey length and validity!!!
-  pubKeyof(priKey){
-    if (priKey.length!=66){throw "privatekey string should be of lenth 66"} 
-    if (priKey.slice(0,2)!="0x"){throw "privateKey string should start with 0x"}
-    const inbuf = Buffer.from(priKey.slice(2), 'hex');
+  //***********************************
+  // private methods
+  //***********************************
+  
+  // private method: returns public key of given private key, but also throws error if invalid input
+  // input string[66]
+  // output string[42]
+  publicKeyOf(privateKey){
+    if (privateKey.length!=66){throw "privatekey string should be of lenth 66"} 
+    if (privateKey.slice(0,2)!="0x"){throw "privateKey string should start with 0x"}
+    const inbuf = Buffer.from(privateKey.slice(2), 'hex');
     if (!secp256k1.privateKeyVerify(inbuf)){throw "invalid privateKey"}
     const oubuf = secp256k1.publicKeyCreate(inbuf, false).slice(1);
-    var pubKey = keccak256(RLP.encode(oubuf)).slice(12).toString('hex') 
-    return "0x"+pubKey.replace(/.$/i,"1")
+    var publicKey = keccak256(RLP.encode(oubuf)).slice(12).toString('hex') 
+    return "0x"+publicKey.replace(/.$/i,"1")
   }
   
-  // an internal method, not meant to be used outside
+  // private method: returns hash string from VALUES OF TXDATA
+  // ps. the VALUES only, NOT the FIELDS and the VALUES
+  // input none, but uses class properties(contents of this.Data, this.Data.Type ... etc)
+  // output string[64]
   hash(){
     var infolist = [
       this.Data.Type,
@@ -63,20 +104,36 @@ class stx{
       this.Data.Payload
     ]
     return keccak256(RLP.encode(infolist)).toString('hex')
-    
   }
   
-  // from hash[256bit] and string[66] to a string[88]
-  signhash(hsh, pri){
+  // private method: returns signature from tx data hash and privateKey
+  // input hash[256bit], string[66]
+  // output string[88]
+  signHash(hsh, pri){
     var signature = secp256k1.sign(Buffer.from(hsh, 'hex'), Buffer.from(pri, 'hex'))
     return Buffer.concat([signature.signature,Buffer.from([signature.recovery])]).toString('base64')
   }
   
+  // private method: used for development to display result
+  // input none,
+  // output none,
   show(){
     console.log(JSON.stringify(this.signedTransaction,null,4))
   }
   
-  txvalidity(tx){
+  // private method: returns true/false as validity of each field of input tx data:
+  //                 numerical types (nonce, amount, price, limit) must all be non-negative and are numbers, decimals are allowed but will be ignored
+  //                 string  types (to, payload) must be strings and reciever address must be valid address with prefix 0x
+  /* input ex tx = {
+                 "to": "0x27266c2b5706e9282546750764531c71052e0281",
+                 "amount": 0.4,
+                 "price":10.56,
+                 "limit":200000.1,
+                 "payload":"0x0101",
+                 "nonce": 0
+               }*/
+  // output bool
+  txValidity(tx){
     if (typeof tx.to !== 'string' || tx.to.length!=42 || tx.to.slice(0,2)!="0x"){
       throw "invalid receiver address, should be of length 42 with prefix 0x"
       return false
@@ -110,4 +167,5 @@ class stx{
     //nonce, amount, price and limit must be positive integers
   }
 }
+
 module.exports = stx;

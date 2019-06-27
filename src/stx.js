@@ -35,13 +35,13 @@ class stx{
                  "Sig": "kIk8Lx+/h3+0/TuQYvHeU5q9YJkUPE7/7zgD3rlLPatfhEJWMCnCVFHGApFSnzJCXl8jbPBhHXoixLQzVTwcSQA="
              }
          }*/
-  sign(priKey, tx){
+  sign(privateKey, tx){
     // step 1/5 check tx validity
     if (!this.txValidity(tx)) {
       return "failed to sign"
     }
     // step 2/5 initialize tx data values for hashing (also checks privateKey validity in publicKeyOf())
-    this.pubKey=this.publicKeyOf(priKey);
+    this.pubKey=this.publicKeyOf(privateKey);
     this.timestamp=0;
     this.type=0;
     this.Data={
@@ -58,7 +58,7 @@ class stx{
     // step 3/5 hash tx data values
     this.hash=this.hash();
     // step 4/5 create signature from hash (of tx data values) and private key
-    this.sign=this.signHash(this.hash, priKey.slice(2));
+    this.sign=this.signHash(this.hash, privateKey);
     // step 5/5 finalize returned signed tx data
     this.signedTransaction={
       "Hash": "0x"+this.hash,
@@ -106,15 +106,15 @@ class stx{
     return keccak256(RLP.encode(infolist)).toString('hex')
   }
   
-  // private method: returns signature from tx data hash and privateKey
-  // input hash[256bit], string[66]
+  // private method: returns signature from tx data hash and privateKey (0x included)
+  // input string[64], string[66]
   // output string[88]
-  signHash(hsh, pri){
-    var signature = secp256k1.sign(Buffer.from(hsh, 'hex'), Buffer.from(pri, 'hex'))
+  signHash(hash, privateKey){
+    var signature = secp256k1.sign(Buffer.from(hash, 'hex'), Buffer.from(privateKey.slice(2), 'hex'))
     return Buffer.concat([signature.signature,Buffer.from([signature.recovery])]).toString('base64')
   }
   
-  // private method: used for development to display result
+  // private method: display result
   // input none,
   // output none,
   show(){

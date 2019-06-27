@@ -3,6 +3,7 @@ const transaction   = require('./tx')
 const filter   = require('./filter')
 const Wallet   = require('./wallet')
 const util   = require('./utils')
+const stx = require('./stx')
 
  // browser
 if (typeof window !== 'undefined' && window.XMLHttpRequest) {
@@ -30,6 +31,16 @@ class SeeleWebProvider {
     this.timeout = timeout || 30000;
     this.wallet = new Wallet()
     this.util = util
+  }
+  
+  signtx(priKey, tx){
+    var signer = new stx()
+    return signer.sign(priKey, tx)
+  }
+  
+  generatekeys(shard){
+    var wallet = new Wallet()
+    return wallet.createbyshard(shard)
   }
 
   /**

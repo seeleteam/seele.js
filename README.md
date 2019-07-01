@@ -1,6 +1,6 @@
 # SeeleJS
 
-SeeleJS is a generic scripting API library for the Seele blockchain.
+SeeleJS is a generic scripting API library for Seele's blockchain.
 
 ## Import
 

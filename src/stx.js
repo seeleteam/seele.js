@@ -1,7 +1,6 @@
-var keccak256 = require('keccak256')  // for hashing
-var RLP = require('rlp')              // for serialization
-var secp256k1 = require('secp256k1')  // for elliptic operations
-
+const createKeccakHash = require('keccak')  // for hashing
+var RLP = require('rlp')                    // for serialization
+var secp256k1 = require('secp256k1')        // for elliptic operations
 class stx{
   //***********************************
   // public methods
@@ -83,7 +82,7 @@ class stx{
     const inbuf = Buffer.from(privateKey.slice(2), 'hex');
     if (!secp256k1.privateKeyVerify(inbuf)){throw "invalid privateKey"}
     const oubuf = secp256k1.publicKeyCreate(inbuf, false).slice(1);
-    var publicKey = keccak256(RLP.encode(oubuf)).slice(12).toString('hex') 
+    var publicKey = createKeccakHash('keccak256').update(RLP.encode(oubuf)).digest().slice(12).toString('hex')
     return "0x"+publicKey.replace(/.$/i,"1")
   }
   
@@ -103,7 +102,7 @@ class stx{
       this.Data.Timestamp,
       this.Data.Payload
     ]
-    return keccak256(RLP.encode(infolist)).toString('hex')
+    return createKeccakHash('keccak256').update(RLP.encode(infolist)).digest().toString('hex')
   }
   
   // private method: returns signature from tx data hash and privateKey (0x included)

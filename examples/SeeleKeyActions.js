@@ -1,4 +1,6 @@
-var stx = require('../src/stx.js');
+var stx = require('../src/seele.js');
+// var  = require('/Users/timy/seele.js/src/seele');
+
 // test this against the client command
 // the tx struct cannot lack any of the fields as shown below, 
 // except from to and payload the others should be numbers
@@ -15,8 +17,9 @@ const tx = {
   "payload":"0x0101",
   "nonce": 0
 }
-var t1 = new stx();
-console.log(JSON.stringify(t1.sign(priKey, tx),null,4))
+var t1 = new SeeleKeyActions();
+console.log(JSON.stringify(t1.signTx(priKey, tx),null,4))
+console.log(JSON.stringify(t1.generateKeys(1),null,4))
 
 console.log("Understand signing offline means user has to determine correct nonce, and enough balance")
 

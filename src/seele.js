@@ -13,6 +13,19 @@ if (typeof window !== 'undefined' && window.XMLHttpRequest) {
   XMLHttpRequest = require('xmlhttprequest').XMLHttpRequest; // jshint ignore: line
 }
 
+class SeeleKeyActions {
+  signTx(privateKey, tx){
+    var signer = new stx()
+    return signer.sign(privateKey, tx)
+  }
+  
+  generateKeys(shard){
+    var wallet = new Wallet()
+    return wallet.createbyshard(shard)
+  }
+}
+
+
 /**
 * SeeleWebProvider should be used to send rpc calls over http
 * @param {String} host A domain name or IP address of the server to issue the request to. Default: 'localhost'.
@@ -31,16 +44,6 @@ class SeeleWebProvider {
     this.timeout = timeout || 30000;
     this.wallet = new Wallet()
     this.util = util
-  }
-  
-  signTx(privateKey, tx){
-    var signer = new stx()
-    return signer.sign(privateKey, tx)
-  }
-  
-  generateKeys(shard){
-    var wallet = new Wallet()
-    return wallet.createbyshard(shard)
   }
 
   /**
@@ -270,4 +273,11 @@ if(typeof global !== 'undefined') {
   global.SeeleWebProvider = SeeleWebProvider;
 }
 
-module.exports = SeeleWebProvider;
+// module.exports = {  SeeleKeyActions };
+module.exports = SeeleKeyActions;
+if (typeof window !== 'undefined' && typeof window.SeeleKeyActions === 'undefined'){
+  window.SeeleKeyActions = SeeleKeyActions;
+}
+if(typeof global !== 'undefined') {
+  global.SeeleKeyActions = SeeleKeyActions;
+}

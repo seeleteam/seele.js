@@ -1,6 +1,7 @@
-var seelejs  = require('../src/seele');
+var seelejs  = require('../src/seele.js');
 
-var client =new seelejs();
+// var client =new seelejs();
+var client = new SeeleWebProvider();
 
 var rawTx = {
     "From" : "0xf4c5625a3a193c5261e7d26de446f86c1c2d2561",

@@ -12,7 +12,8 @@ var commands = module.exports.commands = {
     'generatePayload',
     'estimateGas',
     'isListening',
-    'isSyncing'
+    'isSyncing',
+    'getShardNum'
   ],
   "txpool" : [
     'getBlockTransactionCount',

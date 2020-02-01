@@ -1,51 +1,59 @@
 
 var commands = module.exports.commands = {
-  "seele" : [
-    'getInfo', // no parameters
-    'getBalance', // account:string - wallet address
+  "seele":[
+    'getInfo',
+    'getBalance',
     'addTx',
     'getAccountNonce',
     'getBlockHeight',
     'getBlock',
+    'getBlockByHash',
+    'getBlockByHeight',
     'call',
     'getLogs',
+    'getCode',
     'generatePayload',
     'estimateGas',
-    'isListening',
-    'isSyncing',
-    'getShardNum'
-  ],
-  "txpool" : [
     'getBlockTransactionCount',
+    'getBlockTransactionCountByHeight',
+    'getBlockTransactionCountByHash',
     'getTransactionByBlockIndex',
-    'getTransactionByHash',
+    'getTransactionByBlockHeightAndIndex',
+    'getTransactionByBlockHashAndIndex',
     'getReceiptByTxHash',
+    'getTransactionsFrom',
+    'getTransactionsTo',
+    'getAccountTransactions',
+    'getBlockTransactions',
+    'getBlockTransactionsByHeight',
+    'getBlockTransactionsByHash'
+  ],
+  "txpool":[
+    'getTransactionByHash',
     'getDebtByHash',
-  ],
-  "network" : [
-    'getPeersInfo',
-    'getPeerCount',
-    'getNetworkVersion',
-    'getProtocolVersion',
-    'getNetworkID',
-  ],
-  "miner" : [
-    'start',
-    'stop',
-    'status',
-    'getCoinbase',
-    'setThreads',
-    'setCoinbase',
-    'getEngineInfo'
-  ],
-  "debug" : [
-    'printBlock',
+    'getGasPrice',
     'getTxPoolContent',
     'getTxPoolTxCount',
     'getPendingTransactions',
-    'getPendingDebts',
-    'dumpHeap'
-  ]}
+    'getPendingDebts'
+  ],
+  "download":[
+    'getStatus',
+    'isSyncing'
+  ],
+  "network":[
+    'getPeersInfo',
+    'getPeerCount',
+    'getNetVersion',
+    'getProtocolVersion',
+    'getNetworkID',
+    'isListening'
+  ],
+  "monitor":[
+    'nodeInfo',
+    'nodeStats'
+  ]
+}
 
 module.exports.isCommand = function(command) {
   for (const namespace in commands) {
